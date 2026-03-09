@@ -914,6 +914,7 @@
     <div class="topbar">
       <div class="page-title">Proposals</div>
       <div class="topbar-actions">
+        <button class="btn btn-ghost" onclick="load4208Proposal()" style="font-size:12px;border:1px dashed var(--accent)">↓ Load 4208 14th St NW</button>
         <button class="btn btn-primary" onclick="showProposalBuilder()">+ New Proposal</button>
       </div>
     </div>
@@ -1568,12 +1569,124 @@
     { code: 'PUNCH', name: 'Punch List', desc: 'Final hardware, touch-up painting, adjustments, and cleaning. Substantial completion.', unitCost: 392.60, markup: 52 },
   ];
 
+
+  function load4208Proposal() {
+    showProposalBuilder();
+
+    // Fill in header fields
+    setTimeout(() => {
+      document.getElementById('pb-title').value = 'Full Renovation — 4208 14th St NW (2-Family Flat Conversion)';
+      // Select Charles Washington
+      const sel = document.getElementById('pb-customer');
+      let cwOpt = sel.querySelector('[value="charles-washington"]');
+      if (!cwOpt) {
+        cwOpt = document.createElement('option');
+        cwOpt.value = 'charles-washington';
+        cwOpt.textContent = 'Charles Washington (Olympia Investments)';
+        sel.appendChild(cwOpt);
+      }
+      sel.value = 'charles-washington';
+      document.getElementById('pb-address').value = '4208 14th St NW, Washington, DC 20011';
+      document.getElementById('pb-scope').value = 'Comprehensive renovation and conversion of an existing three-level single-family rowhouse to a two-family flat (2 dwelling units), including the cellar, main level, and second level. All interior finishes will be removed and replaced. Manor Park Construction will be responsible for purchasing all building materials, fixtures, and finishes.\n\nCellar/Basement Unit: Kitchenette with no cooking appliance, laundry hookups, bedroom(s), full bathroom, living area. Full drywall, paint, and vinyl flooring throughout.\n\nMain Level (Lower Unit): Full kitchen, bathroom, living/dining areas, bedroom. Open floor plan with structural modifications.\n\nSecond Level (Upper Unit): Bedrooms, bathroom, laundry area. Note: Front bedroom attic/storage area will NOT be converted to loft.\n\nStructural Work: Installation of two steel beams (W8X35 and W8X18), multiple LVL beams throughout for open floor plan and garage conversion, new footings and posts as required.\n\nMEP Systems: Complete new plumbing, electrical, and HVAC systems. Approximately 15% of existing plumbing/electrical salvaged where feasible. New HVAC: heat pump system in attic (main/second levels) + mini-split (basement).\n\nExterior Work: Replacement of all 16 windows, rear siding replacement (~380 SF), front façade prep and painting, new wrought-iron front porch railings, replacement of rear wood stairs and landing, installation of rear privacy fence.\n\nCode Compliance: Fire-rated floor/ceiling assembly between units (2 layers 5/8" Type X drywall), separate entrance, proper egress from all bedrooms, R-49 ceiling insulation.';
+
+      // Clear default payment rows
+      document.querySelectorAll('.payment-row').forEach(r => r.remove());
+
+      // Add all 22 payments
+      const payments = [
+        ['Deposit / Mobilization — Contract signing, permits, ordering long-lead items, site protection, start demo', '30210.00'],
+        ['Demolition Complete — Full gut demo, debris removal, structural exposure', '13600.00'],
+        ['Structural + Excavation Complete — Footing/slab, foundation repairs, steel/LVL beams, shoring', '13600.00'],
+        ['Building Shell Secured — New exterior windows/doors installed, weather-tight', '13600.00'],
+        ['Exterior Envelope Complete — Siding, façade, exterior paint, front railings, major exterior framing', '13600.00'],
+        ['Rough Framing Complete — Basement, main, second level, garage conversion framing', '13600.00'],
+        ['Rough Plumbing Complete (All Levels)', '13600.00'],
+        ['Rough Electrical Complete (All Levels) — Wiring, panel/service upgrades, inspections ready', '13600.00'],
+        ['Rough HVAC Complete — Ductwork, mechanical rough-in finished', '13600.00'],
+        ['Rough Inspections Passed — Plumbing/electrical/HVAC inspections approved', '13600.00'],
+        ['Insulation Complete — All insulation installed, ready for drywall', '13600.00'],
+        ['Drywall Hung — Basement + main + second level, fire-rated assemblies complete', '13600.00'],
+        ['Drywall Finished + Prime Coat — Tape, mud, sanding, primer applied', '13600.00'],
+        ['Cabinet + Vanity Purchase Milestone — All kitchen cabinets and vanities released', '13600.00'],
+        ['Interior Paint Complete — Final wall/ceiling paint, trim prep ready', '13600.00'],
+        ['Cabinets + Vanities Installed — Both kitchens + all vanity bases', '13600.00'],
+        ['Tile + Waterproofing Complete — All shower waterproofing, all bathroom tile (3.5 baths)', '13600.00'],
+        ['Countertops Installed — Kitchen countertops templated + installed, bath tops installed', '13600.00'],
+        ['Flooring Installed (Whole House) — Hardwood/LVP/tile complete', '13600.00'],
+        ['Interior Trim + Doors Complete — Baseboards, casings, interior doors, stair trim, hardware', '13600.00'],
+        ['Final Fixtures + Mechanical Trim-Out — Plumbing fixtures, lighting, HVAC registers/thermostats', '13600.00'],
+        ['Punch List + Substantial Completion — Final touch-ups, inspections, closeout, turnover', '3157.20'],
+      ];
+
+      const container = document.getElementById('payment-rows');
+      payments.forEach(([desc, amt]) => {
+        const div = document.createElement('div');
+        div.className = 'payment-row';
+        div.style.cssText = 'display:grid;grid-template-columns:1fr 120px 28px;gap:8px;margin-bottom:8px';
+        div.innerHTML = `
+          <input class="form-input pay-desc" style="padding:8px 10px;font-size:12px" value="${desc}">
+          <input class="form-input pay-amt" style="padding:8px 10px;font-size:13px" value="${amt}" oninput="updatePaymentTotal()">
+          <button onclick="this.parentElement.remove();updatePaymentTotal()" style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--muted);cursor:pointer;font-size:16px">×</button>
+        `;
+        container.appendChild(div);
+      });
+      updatePaymentTotal();
+
+      // Clear existing estimate rows
+      document.getElementById('estimate-rows').innerHTML = '';
+
+      // Add all line items from the proposal
+      const items = [
+        ['0015', 'Pre-Construction / Prep', 'Site visits; detailed estimating; coordination with architect, engineers, and consultants; permit preparation support; scheduling and sequencing; trade coordination; preconstruction meetings.', 10, 456.00],
+        ['1300', 'Demolition', 'Interior demolition of cellar, portions of the main level, and second level. Removal of existing finishes, non-load-bearing partitions, kitchens, bathrooms, flooring, and selective ceilings. Includes debris hauling and landfill disposal. Salvage and reuse approximately 15% of existing plumbing and electrical systems.', 12, 395.20],
+        ['2000', 'Excavation & Backfill', 'Selective slab cutting and trenching for new underground plumbing runs serving bathrooms and kitchenette (approximately 45–60 linear feet). Concrete repair and patching at disturbed slab areas. Minor foundation or slab repairs discovered during groundwork.', 7, 395.20],
+        ['4504', 'Roof Repairs / Gutter & Downspout', 'Localized roof repairs as needed for mechanical penetrations and flashing. Replace one rear gutter approximately 17 linear feet. Replace one downspout approximately 22–25 linear feet.', 4, 722.00],
+        ['3300', 'Windows & Exterior Doors', 'Remove and replace 16 existing windows and install new replacement windows throughout. Reinstall, adjust, clean up, and paint existing front and rear exterior doors.', 13, 395.20],
+        ['3400', 'Exterior Siding & Painting', 'Install new rear exterior siding approximately 350–400 square feet (net of openings). Prepare and paint the front façade, front porch, and front walk, including surface preparation and finish coats.', 18, 395.20],
+        ['0007', 'Misc Exterior', 'Install new wrought-iron stair railings at the front entry. Salvage and reinstall existing porch elements where feasible. Replace rear wood stairs and landing (full run of approximately 13 risers with landing). Install new rear privacy fence with one cedar gate.', 15, 395.20],
+        ['2010', 'Groundwork Plumbing', 'Underground plumbing rough-in for 3.5 bathrooms and cellar kitchenette, including trench coordination, pipe installation, testing, tie-ins to existing sewer lateral.', 6, 684.00],
+        ['3450', 'Structural & Interior Framing', 'BASEMENT: Full new framing for partitions, bedrooms, bath, laundry/closets (~140-180 LF). MAIN LEVEL: Selective new framing for reconfigured partitions (~40-70 LF). SECOND LEVEL: New framing for reconfigured rooms, closets, bath/laundry partitions (~90-130 LF). STRUCTURAL: Installation of two steel beams (W8X35 & W8X18), multiple LVL beams per structural plans, new lintels for masonry openings, temporary shoring, new footings and bearing points. Does NOT include loft framing or roof modifications.', 47, 395.20],
+        ['3720', 'Plumbing Rough-In', 'Complete new plumbing rough-in for 3.5 bathrooms, main kitchen, cellar kitchenette including new stacks, branches, vents, water distribution, excluding salvaged portions. Maintain existing 3/4" water service (waiver obtained).', 21, 684.00],
+        ['3810', 'Electrical Rough-In & Heavy-Up', 'Full electrical rough-in including new service panel and preparation for heavy-up, branch wiring, receptacles, switches, three-way switching at stairways, smoke and CO detectors, bath exhaust fans, recessed lighting rough-in per room counts, and installation of all electrical boxes.', 34, 532.00],
+        ['3610', 'HVAC Rough-In', 'Complete HVAC rough-in including ductwork, equipment setting, vents, flues, condensate piping, linesets, support for: (1) Heat pump system in attic serving main and second levels, (1) Mini-split system for basement. Units installed during final phase.', 17, 684.00],
+        ['HWF', 'Wood Flooring', 'Install new wood flooring on the main level. Salvage and refinish existing second-level wood flooring. Refinish main level staircase and install new stair railing.', 25, 395.20],
+        ['4400', 'Insulation', 'Install batt insulation at exterior walls, second-level ceiling, and any opened assemblies as required by code.', 5, 395.20],
+        ['5100', 'Finish Wall / Drywall', 'Hang, tape, and finish approximately 140 sheets of drywall at all new and affected areas, including covering damaged exposed brick at the stairwell. Smooth finish ready for paint.', 32, 395.20],
+        ['TILE', 'Tile Installation — Walls & Floors', 'Tile labor for all bathrooms including waterproofing systems, shower seals, thresholds, and transitions. Tub bath: ~60 SF shower wall tile + 40 SF floor tile. Each shower bath: ~90 SF shower wall tile + 12 SF shower floor + 40 SF bathroom floor tile.', 12, 554.80],
+        ['5200', 'Trim & Doors', 'Install approximately 12 interior doors, including all casing, baseboards, window trim, and related finish trim throughout. Estimated quantities: ~550–650 LF of baseboard and ~350–450 LF of casing.', 18, 395.20],
+        ['5300', 'Painting', 'Prime and paint all interior walls, ceilings, and trim throughout the home, approximately 7,500 square feet of paintable surface. Ceilings: flat white. Trim and doors: semi-gloss white. Walls scoped for all one color. Additional colors are $450 each.', 14, 395.20],
+        ['5400', 'Cabinets & Vanities', 'Install main level kitchen cabinets (approximately 20 units), cellar kitchenette cabinets (approximately 7 units), and four vanities total.', 16, 395.20],
+        ['5998', 'Finish Carpentry & Hardware', 'Install door hardware for approximately 12 interior doors, mirrors, towel bars, toilet paper holders, closet rods and shelving, and miscellaneous finish accessories and blocking.', 4, 395.20],
+        ['5720', 'Electrical & Plumbing Fixtures', 'Install recessed light trims, decorative light fixtures, switches and dimmers, receptacles and cover plates, toilets, sinks, faucets, shower and tub trim, bath fans, and all related trim-out components per plan.', 14, 395.20],
+        ['5700', 'HVAC Units Installation', 'Set, install, connect all HVAC equipment: (1) Heat pump system (outdoor unit + air handler) in attic serving main/second levels, (1) Mini-split system for basement. Includes equipment placement, connections to ductwork, refrigerant lines, condensate drainage, thermostat installation, system start-up, testing, balancing, commissioning.', 12, 684.00],
+        ['5530', 'Vinyl Flooring', 'Install vinyl flooring in basement areas approximately 450–550 square feet and paint basement stairs and stringers.', 8, 395.20],
+        ['1010', 'Permits & Inspections', 'Labor and coordination for building permit, electrical permit, plumbing permit, HVAC permit, public space permit as required, and any mandated third-party inspections.', 1, 4560.00],
+        ['SUP', 'Supervision / Site Supervisor', 'On-site project management including scheduling, trade coordination, quality control, safety oversight, inspections, and closeout.', 32, 900.00],
+        ['MATL', 'Building Materials', 'Windows (16 units), exterior/interior doors (12 units), framing lumber (2x4/2x6 studs, LVL beams, steel beams W8X35+W8X18, subfloor plywood), drywall (150 sheets 1/2" + fire-rated 5/8" Type X), insulation (R-13 950 SF + R-49 750 SF), full electrical package (200A panel, 12/2 NM cable 2800 LF, 14/2 NM 1700 LF, 54 recessed light housings, 130 device boxes, etc.), full plumbing package (PEX A tubing 1000 LF, ABS/PVC DWV pipe, 32 shutoff valves, etc.), HVAC systems (heat pump + mini-split complete sets, ductwork), exterior materials (rear siding 400 SF, housewrap 550 SF, gutter/downspout), concrete and misc consumables.', 1, 61250.00],
+        ['5890', 'Finish Materials', 'Cabinetry & countertops (20 kitchen units + 7 kitchenette units + 4 vanities + tops), plumbing fixtures & trim (4 toilets, 1 tub, 3 shower valves/sets, 4 faucets, bath accessories), bath lighting & ventilation (4 bath fans, 4 vanity lights, common area fixtures), tile & waterproofing (420 SF tile, 44 sheets cement board, Schluter kits for 3 showers + 1 tub, drain assemblies), flooring finish materials (800 SF main level wood, 550 SF basement vinyl, underlayment 1350 SF, transitions), trim finish materials (baseboard/casing, 12 door hardware sets, closet hardware), paint materials (26 gal primer, 21 gal ceiling, 42 gal wall, 16 gal trim), mirrors and bath accessories (4 sets), kitchen misc (garbage disposal, dishwasher air gap).', 1, 42250.00],
+      ];
+
+      items.forEach(([code, name, desc, qty, unitCost]) => {
+        addEstimateRow(code, name, desc, qty, unitCost, 0);
+      });
+
+      showToast('4208 14th St NW proposal loaded!');
+    }, 300);
+  }
   function showProposalBuilder() {
     document.getElementById('proposals-list-view').style.display = 'none';
     document.getElementById('proposals-builder-view').style.display = 'block';
     renderCatalog();
     // Auto-populate customer dropdown
     loadCustomers();
+    // Seed Charles Washington option
+    const sel = document.getElementById('pb-customer');
+    if (sel && !sel.querySelector('[value="charles-washington"]')) {
+      const opt = document.createElement('option');
+      opt.value = 'charles-washington';
+      opt.textContent = 'Charles Washington (Olympia Investments)';
+      sel.appendChild(opt);
+    }
   }
 
   function hideProposalBuilder() {
