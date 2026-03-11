@@ -934,6 +934,49 @@
       </div>
     </div>
 
+    <!-- PROPOSAL DETAIL VIEW -->
+    <div class="content" id="proposals-detail-view" style="display:none">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px">
+        <div>
+          <div id="detail-title" style="font-size:20px; font-weight:700">Proposal</div>
+          <div id="detail-subtitle" style="font-size:13px; color:var(--muted); margin-top:3px"></div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-ghost" onclick="hideProposalDetail()">← Back</button>
+          <button class="btn btn-ghost" onclick="printDetailProposal()">🖨 Print</button>
+          <select id="detail-status-select" class="form-input" style="width:140px;padding:8px 12px;font-size:13px" onchange="updateProposalStatus()">
+            <option value="draft">Draft</option>
+            <option value="sent">Sent</option>
+            <option value="approved">Approved</option>
+            <option value="declined">Declined</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+        <div class="card" style="padding:24px">
+          <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:16px">CONTRACT DETAILS</div>
+          <div id="detail-info" style="font-size:14px;line-height:1.8;color:var(--text)"></div>
+        </div>
+        <div class="card" style="padding:24px">
+          <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:16px">PAYMENT SCHEDULE</div>
+          <div id="detail-payments"></div>
+          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:space-between">
+            <div style="font-size:13px;color:var(--muted)">Total</div>
+            <div id="detail-total" style="font-size:18px;font-weight:700;color:var(--accent)"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="padding:24px">
+        <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:16px">LINE ITEMS / ESTIMATE</div>
+        <table class="table">
+          <thead>
+            <tr><th>Item</th><th>Code</th><th>Qty</th><th>Unit Cost</th><th>Client Price</th><th>Total</th></tr>
+          </thead>
+          <tbody id="detail-items"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- PROPOSAL BUILDER -->
     <div class="content" id="proposals-builder-view" style="display:none">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px">
@@ -2084,9 +2127,69 @@ ${paymentsHtml}
     });
   });
 
-  function viewProposal(id) {
-    showToast('Loading proposal...');
-    // Full view/edit coming soon
+  let currentProposalId = null;
+
+  async function viewProposal(id) {
+    currentProposalId = id;
+    const { data, error } = await db.from('proposals').select('*, customers(first_name, last_name)').eq('id', id).single();
+    if (error || !data) { showToast('Could not load proposal.'); return; }
+
+    document.getElementById('proposals-list-view').style.display = 'none';
+    document.getElementById('proposals-builder-view').style.display = 'none';
+    document.getElementById('proposals-detail-view').style.display = 'block';
+
+    const clientName = data.customers ? `${data.customers.first_name} ${data.customers.last_name}` : '—';
+    document.getElementById('detail-title').textContent = data.title || 'Proposal';
+    document.getElementById('detail-subtitle').textContent = clientName + (data.address ? ' — ' + data.address : '');
+    document.getElementById('detail-status-select').value = data.status || 'draft';
+    document.getElementById('detail-total').textContent = data.total_amount ? '$' + Number(data.total_amount).toLocaleString('en-US', {minimumFractionDigits:2}) : '—';
+
+    document.getElementById('detail-info').innerHTML = `
+      <div><strong>Customer:</strong> ${clientName}</div>
+      <div><strong>Address:</strong> ${data.address || '—'}</div>
+      <div><strong>Start:</strong> ${data.start_date || '—'}</div>
+      <div><strong>End:</strong> ${data.end_date || '—'}</div>
+      <div style="margin-top:12px;font-size:13px;color:var(--muted)">${(data.scope || '').replace(/\n/g,'<br>')}</div>
+    `;
+
+    const payments = typeof data.payments === 'string' ? JSON.parse(data.payments) : (data.payments || []);
+    document.getElementById('detail-payments').innerHTML = payments.map(p => `
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <div style="color:var(--muted)">${p.num ? p.num + '. ' : ''}${p.desc}</div>
+        <div style="font-weight:600">${p.amt}</div>
+      </div>
+    `).join('');
+
+    const items = typeof data.line_items === 'string' ? JSON.parse(data.line_items) : (data.line_items || []);
+    document.getElementById('detail-items').innerHTML = items.map(item => `
+      <tr>
+        <td><strong>${item.name || '—'}</strong>${item.desc ? '<br><span style="font-size:11px;color:var(--muted)">' + item.desc.substring(0,80) + (item.desc.length > 80 ? '...' : '') + '</span>' : ''}</td>
+        <td style="font-size:12px;color:var(--muted)">${item.code || ''}</td>
+        <td>${item.qty || ''}</td>
+        <td>${item.unitCost ? '$' + Number(item.unitCost).toLocaleString() : '—'}</td>
+        <td>${item.clientPrice ? '$' + Number(item.clientPrice).toLocaleString() : '—'}</td>
+        <td style="font-weight:600">${item.total || '—'}</td>
+      </tr>
+    `).join('');
+  }
+
+  function hideProposalDetail() {
+    document.getElementById('proposals-detail-view').style.display = 'none';
+    document.getElementById('proposals-list-view').style.display = 'block';
+    currentProposalId = null;
+  }
+
+  async function updateProposalStatus() {
+    if (!currentProposalId) return;
+    const status = document.getElementById('detail-status-select').value;
+    const { error } = await db.from('proposals').update({ status }).eq('id', currentProposalId);
+    if (error) { showToast('Error updating status'); return; }
+    showToast('Status updated!');
+    loadProposals();
+  }
+
+  function printDetailProposal() {
+    window.print();
   }
 
   window.addEventListener('load', function() {
