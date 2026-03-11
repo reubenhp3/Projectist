@@ -2010,8 +2010,57 @@ ${paymentsHtml}
     setTimeout(() => win.print(), 800);
   }
 
-  function saveProposalDraft() {
-    showToast('Draft saved! (Full save coming soon)');
+  async function saveProposalDraft() {
+    const d = getProposalData();
+    const customer_id = document.getElementById('pb-customer').value;
+
+    if (!d.title && !d.address) { alert('Please enter at least a project title or address.'); return; }
+
+    const proposalData = {
+      customer_id: customer_id || null,
+      title: d.title || d.address || 'Untitled Proposal',
+      address: d.address,
+      start_date: d.start || null,
+      end_date: d.end || null,
+      scope: d.scope,
+      total_amount: parseFloat(d.total.replace(/[^0-9.]/g,'')) || 0,
+      payments: JSON.stringify(d.payments),
+      line_items: JSON.stringify(d.items),
+      status: 'draft'
+    };
+
+    const { error } = await db.from('proposals').insert([proposalData]);
+    if (error) { alert('Error saving proposal: ' + error.message); return; }
+
+    showToast('Proposal saved!');
+    loadProposals();
+  }
+
+  async function loadProposals() {
+    const { data, error } = await db.from('proposals').select('*, customers(first_name, last_name)').order('created_at', { ascending: false });
+    if (error) { console.error(error); return; }
+
+    const tbody = document.getElementById('proposals-tbody');
+    if (!data || data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:40px">No proposals yet. Create your first one!</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map((p, i) => {
+      const clientName = p.customers ? `${p.customers.first_name} ${p.customers.last_name}` : '—';
+      const amount = p.total_amount ? '$' + Number(p.total_amount).toLocaleString() : '—';
+      const date = p.created_at ? new Date(p.created_at).toLocaleDateString() : '—';
+      const statusColor = p.status === 'approved' ? 'active' : p.status === 'sent' ? 'proposal' : 'pending';
+      return `<tr>
+        <td>#${String(i+1).padStart(3,'0')}</td>
+        <td>${clientName}</td>
+        <td>${p.title || p.address || '—'}</td>
+        <td>${amount}</td>
+        <td>${date}</td>
+        <td><span class="badge badge-${statusColor}">${p.status || 'draft'}</span></td>
+        <td><button class="btn btn-ghost" style="font-size:11px;padding:4px 10px" onclick="viewProposal('${p.id}')">View</button></td>
+      </tr>`;
+    }).join('');
   }
 
   function showView(name, el) {
@@ -2035,9 +2084,15 @@ ${paymentsHtml}
     });
   });
 
+  function viewProposal(id) {
+    showToast('Loading proposal...');
+    // Full view/edit coming soon
+  }
+
   window.addEventListener('load', function() {
     loadCustomers();
     loadProjects();
+    loadProposals();
   });
 </script>
 </body>
