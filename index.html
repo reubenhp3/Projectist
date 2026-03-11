@@ -1588,14 +1588,14 @@
       document.getElementById('pb-title').value = 'Full Renovation — 4208 14th St NW (2-Family Flat Conversion)';
       // Select Charles Washington
       const sel = document.getElementById('pb-customer');
-      let cwOpt = sel.querySelector('[value="charles-washington"]');
+      let cwOpt = sel.querySelector('[value="df2f79fd-0b10-47a0-a650-6207143dbc10"]');
       if (!cwOpt) {
         cwOpt = document.createElement('option');
-        cwOpt.value = 'charles-washington';
+        cwOpt.value = 'df2f79fd-0b10-47a0-a650-6207143dbc10';
         cwOpt.textContent = 'Charles Washington (Olympia Investments)';
         sel.appendChild(cwOpt);
       }
-      sel.value = 'charles-washington';
+      sel.value = 'df2f79fd-0b10-47a0-a650-6207143dbc10';
       document.getElementById('pb-address').value = '4208 14th St NW, Washington, DC 20011';
       document.getElementById('pb-scope').value = 'Comprehensive renovation and conversion of an existing three-level single-family rowhouse to a two-family flat (2 dwelling units), including the cellar, main level, and second level. All interior finishes will be removed and replaced. Manor Park Construction will be responsible for purchasing all building materials, fixtures, and finishes.\n\nCellar/Basement Unit: Kitchenette with no cooking appliance, laundry hookups, bedroom(s), full bathroom, living area. Full drywall, paint, and vinyl flooring throughout.\n\nMain Level (Lower Unit): Full kitchen, bathroom, living/dining areas, bedroom. Open floor plan with structural modifications.\n\nSecond Level (Upper Unit): Bedrooms, bathroom, laundry area. Note: Front bedroom attic/storage area will NOT be converted to loft.\n\nStructural Work: Installation of two steel beams (W8X35 and W8X18), multiple LVL beams throughout for open floor plan and garage conversion, new footings and posts as required.\n\nMEP Systems: Complete new plumbing, electrical, and HVAC systems. Approximately 15% of existing plumbing/electrical salvaged where feasible. New HVAC: heat pump system in attic (main/second levels) + mini-split (basement).\n\nExterior Work: Replacement of all 16 windows, rear siding replacement (~380 SF), front façade prep and painting, new wrought-iron front porch railings, replacement of rear wood stairs and landing, installation of rear privacy fence.\n\nCode Compliance: Fire-rated floor/ceiling assembly between units (2 layers 5/8" Type X drywall), separate entrance, proper egress from all bedrooms, R-49 ceiling insulation.';
 
@@ -1691,9 +1691,9 @@
     loadCustomers();
     // Seed Charles Washington option
     const sel = document.getElementById('pb-customer');
-    if (sel && !sel.querySelector('[value="charles-washington"]')) {
+    if (sel && !sel.querySelector('[value="df2f79fd-0b10-47a0-a650-6207143dbc10"]')) {
       const opt = document.createElement('option');
-      opt.value = 'charles-washington';
+      opt.value = 'df2f79fd-0b10-47a0-a650-6207143dbc10';
       opt.textContent = 'Charles Washington (Olympia Investments)';
       sel.appendChild(opt);
     }
