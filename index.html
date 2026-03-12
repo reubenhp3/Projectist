@@ -902,6 +902,7 @@
         <button class="pd-tab" onclick="showPdTab('schedule',this)">Schedule</button>
         <button class="pd-tab" onclick="showPdTab('photos',this)">Photos</button>
         <button class="pd-tab" onclick="showPdTab('messages',this)">Messages</button>
+        <button class="pd-tab" onclick="showPdTab('portal',this)">Client Portal</button>
       </div>
 
       <!-- Tab: Proposals -->
@@ -959,7 +960,41 @@
 
   </div>
 
-  <!-- ADD COST MODAL -->
+  <!-- Tab: Client Portal -->
+      <div id="pd-tab-portal" class="pd-tab-content" style="display:none">
+        <div style="margin-bottom:16px">
+          <div style="font-size:14px;font-weight:600;margin-bottom:4px">Client Portal Link</div>
+          <div style="font-size:13px;color:var(--muted);margin-bottom:12px">Send this link to your client so they can track their project.</div>
+          <div id="portal-link-display" style="display:none">
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:13px;word-break:break-all;margin-bottom:10px" id="portal-link-text"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" style="font-size:13px" onclick="copyPortalLink()">Copy Link</button>
+              <button class="btn btn-ghost" style="font-size:13px" onclick="generatePortalLink()">Regenerate</button>
+            </div>
+          </div>
+          <div id="portal-link-generate" style="display:none">
+            <button class="btn btn-primary" onclick="generatePortalLink()">Generate Client Link</button>
+          </div>
+          <div id="portal-link-loading" style="font-size:13px;color:var(--muted)">Loading...</div>
+        </div>
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+          <div style="font-size:14px;font-weight:600;margin-bottom:12px">Daily Log</div>
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <input type="date" id="log-date-input" class="form-input" style="width:160px">
+            <button class="btn btn-primary" style="font-size:13px" onclick="openModal('modal-add-log')">+ Add Entry</button>
+          </div>
+          <div id="pd-log-list"></div>
+        </div>
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div style="font-size:14px;font-weight:600">Client To-Do List</div>
+            <button class="btn btn-ghost" style="font-size:13px" onclick="openModal('modal-add-todo')">+ Add Item</button>
+          </div>
+          <div id="pd-todo-list"></div>
+        </div>
+      </div>
+
+      <!-- ADD COST MODAL -->
   <div id="modal-add-cost" class="modal-overlay">
     <div class="modal">
       <div class="modal-header"><div class="modal-title">Add Job Cost</div><button class="modal-close" onclick="closeModal('modal-add-cost')">×</button></div>
