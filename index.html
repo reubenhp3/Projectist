@@ -1195,6 +1195,7 @@
       <div class="page-title">Proposals</div>
       <div class="topbar-actions">
         
+        <button class="btn btn-ghost" style="font-size:13px" onclick="startFromTemplate()">📋 Start from Template</button>
         <button class="btn btn-primary" onclick="showProposalBuilder()">+ New Proposal</button>
       </div>
     </div>
@@ -1910,7 +1911,48 @@
   ];
 
 
-  function load4208Proposal() {
+  async function startFromTemplate() {
+    // Load Charles Washington's proposal as template
+    const templateId = '8daf5937-6c7f-4d1d-9879-bb351d4efef1';
+    const { data, error } = await db.from('proposals').select('*').eq('id', templateId).single();
+    if (error || !data) { showToast('Template not found.'); return; }
+
+    showProposalBuilder();
+
+    // Clear client/project fields
+    document.getElementById('pb-customer').value = '';
+    document.getElementById('pb-project').value = '';
+    document.getElementById('pb-address').value = '';
+    document.getElementById('pb-title').value = '';
+
+    // Load scope from template
+    if (data.scope) document.getElementById('pb-scope').value = data.scope;
+
+    // Load line items
+    const items = typeof data.line_items === 'string' ? JSON.parse(data.line_items) : (data.line_items || []);
+    document.getElementById('estimate-rows').innerHTML = '';
+    items.forEach(item => addRow(item.name, item.code, item.desc, item.qty, item.unitCost, item.markup));
+
+    // Load payment schedule
+    const payments = typeof data.payments === 'string' ? JSON.parse(data.payments) : (data.payments || []);
+    const payContainer = document.getElementById('payment-rows');
+    if (payContainer && payments.length) {
+      payContainer.innerHTML = '';
+      payments.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'payment-row';
+        row.style = 'display:grid;grid-template-columns:1fr 140px auto;gap:8px;margin-bottom:8px;align-items:center';
+        row.innerHTML = `
+          <input class="form-input pay-desc" style="padding:8px 10px;font-size:13px" placeholder="Phase description" value="${p.desc || ''}">
+          <input class="form-input pay-amt" style="padding:8px 10px;font-size:13px" placeholder="$0.00" value="${p.amt || ''}" oninput="updatePaymentTotal()">
+          <button type="button" onclick="this.parentElement.remove();updatePaymentTotal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px">×</button>`;
+        payContainer.appendChild(row);
+      });
+      updatePaymentTotal();
+    }
+
+    showToast('Template loaded — update client and address.');
+  }
     showProposalBuilder();
 
     // Fill in header fields
