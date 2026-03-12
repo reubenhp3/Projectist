@@ -1194,8 +1194,14 @@
 
           <div class="form-group">
             <label class="form-label">Customer</label>
-            <select id="pb-customer" class="form-input customer-select">
+            <select id="pb-customer" class="form-input customer-select" onchange="loadProjectsForCustomer()">
               <option value="">Select customer...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Project</label>
+            <select id="pb-project" class="form-input">
+              <option value="">Select customer first...</option>
             </select>
           </div>
           <div class="form-group">
@@ -2247,14 +2253,29 @@ ${paymentsHtml}
     setTimeout(() => win.print(), 800);
   }
 
+  async function loadProjectsForCustomer() {
+    const customerId = document.getElementById('pb-customer').value;
+    const sel = document.getElementById('pb-project');
+    if (!customerId) { sel.innerHTML = '<option value="">Select customer first...</option>'; return; }
+    const { data } = await db.from('projects').select('*').eq('customer_id', customerId);
+    if (!data || data.length === 0) {
+      sel.innerHTML = '<option value="">No projects found</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">Select project...</option>' +
+      data.map(p => `<option value="${p.id}">${p.name}${p.address ? ' — ' + p.address : ''}</option>`).join('');
+  }
+
   async function saveProposalDraft() {
     const d = getProposalData();
     const customer_id = document.getElementById('pb-customer').value;
 
     if (!d.title && !d.address) { alert('Please enter at least a project title or address.'); return; }
 
+    const project_id = document.getElementById('pb-project').value;
     const proposalData = {
       customer_id: customer_id || null,
+      project_id: project_id || null,
       title: d.title || d.address || 'Untitled Proposal',
       address: d.address,
       start_date: d.start || null,
@@ -2370,7 +2391,7 @@ ${paymentsHtml}
   }
 
   async function loadPdProposals() {
-    const { data } = await db.from('proposals').select('*').or(`project_id.eq.${currentProjectId},customer_id.eq.(select customer_id from projects where id='${currentProjectId}')`);
+    const { data } = await db.from('proposals').select('*').eq('project_id', currentProjectId);
     const div = document.getElementById('pd-proposals-list');
     if (!data || data.length === 0) {
       div.innerHTML = '<div style="color:var(--muted);font-size:13px;padding:20px 0">No proposals linked yet.</div>';
