@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Project — Manor Park Construction</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #f5f3ef;
+      --surface: #ffffff;
+      --surface2: #eeece8;
+      --border: #dddbd6;
+      --text: #1a1916;
+      --muted: #7a7872;
+      --accent: #b85c2a;
+      --accent2: #2a5cb8;
+      --green: #2a7a4b;
+      --red: #c0392b;
+      --radius: 12px;
+      --shadow: 0 2px 12px rgba(0,0,0,0.07);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 48px;
+    }
+    .portal-header {
+      background: var(--text);
+      color: #fff;
+      padding: 18px 20px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .portal-header .brand { font-family: 'DM Serif Display', serif; font-size: 18px; letter-spacing: 0.02em; }
+    .portal-header .brand span { color: var(--accent); }
+    .portal-header .project-label { font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+    .header-right { text-align: right; }
+    .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+    .status-active { background: var(--green); color: #fff; }
+    .status-pending { background: #e0a020; color: #fff; }
+    .status-complete { background: var(--accent2); color: #fff; }
+    .portal-nav { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; gap: 0; padding: 0 12px; }
+    .portal-nav::-webkit-scrollbar { display: none; }
+    .nav-tab { flex-shrink: 0; padding: 14px 16px; font-size: 13px; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; }
+    .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .portal-section { display: none; padding: 20px 16px; max-width: 640px; margin: 0 auto; }
+    .portal-section.active { display: block; }
+    .card { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); padding: 18px; margin-bottom: 14px; box-shadow: var(--shadow); }
+    .card-title { font-family: 'DM Serif Display', serif; font-size: 16px; margin-bottom: 12px; color: var(--text); }
+    .card-subtitle { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 10px; }
+    .progress-wrap { margin: 10px 0 16px; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .progress-bar { height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.4s ease; }
+    .overview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+    .overview-stat { background: var(--surface2); border-radius: 8px; padding: 12px; }
+    .overview-stat .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .overview-stat .value { font-size: 18px; font-weight: 600; margin-top: 2px; }
+    .contact-card { display: flex; align-items: flex-start; gap: 14px; }
+    .contact-avatar { width: 46px; height: 46px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-family: 'DM Serif Display', serif; font-size: 18px; flex-shrink: 0; }
+    .contact-avatar.contractor { background: var(--text); }
+    .contact-info { flex: 1; }
+    .contact-name { font-weight: 600; font-size: 15px; }
+    .contact-role { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+    .contact-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .contact-btn { display: inline-flex; align-items: center; gap: 5px; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; text-decoration: none; cursor: pointer; border: none; transition: opacity 0.15s; }
+    .contact-btn:hover { opacity: 0.8; }
+    .btn-call { background: var(--green); color: #fff; }
+    .btn-text { background: var(--accent2); color: #fff; }
+    .btn-email { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-msg { background: var(--accent); color: #fff; }
+    .log-entry { padding: 14px 0; border-bottom: 1px solid var(--border); }
+    .log-entry:last-child { border-bottom: none; }
+    .log-date { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--accent); margin-bottom: 4px; }
+    .log-text { font-size: 14px; line-height: 1.6; color: var(--text); }
+    .log-photos { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .log-photo { width: 80px; height: 80px; border-radius: 8px; object-fit: cover; border: 1px solid var(--border); cursor: pointer; }
+    .todo-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .todo-item:last-child { border-bottom: none; }
+    .todo-check { width: 20px; height: 20px; border-radius: 4px; border: 2px solid var(--border); flex-shrink: 0; margin-top: 1px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+    .todo-check.done { background: var(--green); border-color: var(--green); }
+    .todo-check.done::after { content: '✓'; color: #fff; font-size: 12px; }
+    .todo-text { flex: 1; }
+    .todo-title { font-size: 14px; font-weight: 500; }
+    .todo-title.done { text-decoration: line-through; color: var(--muted); }
+    .todo-due { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .todo-urgent { font-size: 10px; background: #fde8e8; color: var(--red); padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 6px; }
+    .milestone-item { display: flex; align-items: flex-start; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .milestone-item:last-child { border-bottom: none; }
+    .milestone-dot { width: 12px; height: 12px; border-radius: 50%; margin-top: 4px; flex-shrink: 0; }
+    .milestone-dot.done { background: var(--green); }
+    .milestone-dot.current { background: var(--accent); box-shadow: 0 0 0 3px rgba(184,92,42,0.2); }
+    .milestone-dot.upcoming { background: var(--border); }
+    .milestone-info { flex: 1; }
+    .milestone-name { font-size: 14px; font-weight: 500; }
+    .milestone-name.done { text-decoration: line-through; color: var(--muted); }
+    .milestone-date { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .invoice-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .invoice-item:last-child { border-bottom: none; }
+    .invoice-desc { font-size: 14px; font-weight: 500; }
+    .invoice-date { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .invoice-right { text-align: right; }
+    .invoice-amount { font-size: 15px; font-weight: 600; }
+    .invoice-status { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 7px; border-radius: 4px; margin-top: 3px; display: inline-block; }
+    .inv-paid { background: #d4edda; color: var(--green); }
+    .inv-due { background: #fde8e8; color: var(--red); }
+    .inv-upcoming { background: var(--surface2); color: var(--muted); }
+    .msg-thread { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; min-height: 200px; }
+    .msg-bubble { max-width: 80%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.5; }
+    .msg-bubble.contractor { background: var(--text); color: #fff; border-bottom-left-radius: 4px; align-self: flex-start; }
+    .msg-bubble.client { background: var(--surface2); color: var(--text); border-bottom-right-radius: 4px; align-self: flex-end; }
+    .msg-time { font-size: 10px; opacity: 0.6; margin-top: 4px; }
+    .msg-input-wrap { display: flex; gap: 8px; }
+    .msg-input { flex: 1; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); font-family: inherit; font-size: 14px; outline: none; }
+    .msg-input:focus { border-color: var(--accent); }
+    .msg-send { padding: 10px 18px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .contract-status-bar { display: flex; align-items: center; gap: 10px; padding: 12px; background: var(--surface2); border-radius: 8px; margin-bottom: 14px; }
+    .contract-status-icon { font-size: 22px; }
+    .contract-status-text { font-size: 13px; font-weight: 500; }
+    .contract-status-sub { font-size: 11px; color: var(--muted); }
+    .btn-primary { display: block; width: 100%; padding: 14px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer; text-align: center; margin-top: 10px; transition: opacity 0.15s; }
+    .btn-primary:hover { opacity: 0.85; }
+    .btn-secondary { display: block; width: 100%; padding: 12px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer; text-align: center; margin-top: 8px; }
+    .sig-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: flex-end; justify-content: center; }
+    .sig-modal.open { display: flex; }
+    .sig-sheet { background: var(--surface); border-radius: 16px 16px 0 0; padding: 20px; width: 100%; max-width: 640px; }
+    .sig-title { font-family: 'DM Serif Display', serif; font-size: 18px; margin-bottom: 4px; }
+    .sig-sub { font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+    .sig-canvas-wrap { border: 2px dashed var(--border); border-radius: 8px; background: #fafafa; position: relative; margin-bottom: 12px; }
+    #sig-canvas { display: block; width: 100%; touch-action: none; cursor: crosshair; }
+    .sig-clear { position: absolute; top: 8px; right: 8px; background: var(--surface2); border: 1px solid var(--border); padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+    .sig-line { position: absolute; bottom: 30px; left: 20px; right: 20px; border-bottom: 1px solid var(--border); pointer-events: none; }
+    .sig-x { position: absolute; bottom: 34px; left: 14px; font-size: 18px; color: var(--muted); pointer-events: none; }
+    .sig-actions { display: flex; gap: 8px; }
+    .sig-btn-cancel { flex: 1; padding: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 14px; cursor: pointer; }
+    .sig-btn-submit { flex: 2; padding: 12px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .loading-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 14px; }
+    .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error-screen { text-align: center; padding: 48px 20px; color: var(--muted); }
+    .error-screen h2 { font-family: 'DM Serif Display', serif; color: var(--text); margin-bottom: 8px; }
+    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 2000; align-items: center; justify-content: center; }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 95vw; max-height: 90vh; border-radius: 8px; }
+    .lightbox-close { position: absolute; top: 16px; right: 16px; color: #fff; font-size: 28px; cursor: pointer; line-height: 1; }
+  </style>
+</head>
+<body>
+
+<div class="loading-screen" id="loading-screen">
+  <div class="spinner"></div>
+  <div style="font-size:14px;color:var(--muted)">Loading your project...</div>
+</div>
+
+<div class="error-screen" id="error-screen" style="display:none">
+  <h2>Link Not Found</h2>
+  <p>This invite link may have expired or been revoked.<br>Please contact Manor Park Construction.</p>
+  <p style="margin-top:16px"><a href="tel:+12025551234" style="color:var(--accent)">(202) 555-1234</a></p>
+</div>
+
+<div id="portal-wrap" style="display:none">
+  <div class="portal-header">
+    <div>
+      <div class="brand">Manor<span>Park</span></div>
+      <div class="project-label" id="hdr-project-name">Loading...</div>
+    </div>
+    <div class="header-right">
+      <span class="status-badge status-active" id="hdr-status">Active</span>
+    </div>
+  </div>
+
+  <div class="portal-nav">
+    <div class="nav-tab active" onclick="showTab('overview')">Overview</div>
+    <div class="nav-tab" onclick="showTab('log')">Daily Log</div>
+    <div class="nav-tab" onclick="showTab('todos')">To-Do</div>
+    <div class="nav-tab" onclick="showTab('schedule')">Schedule</div>
+    <div class="nav-tab" onclick="showTab('invoices')">Invoices</div>
+    <div class="nav-tab" onclick="showTab('messages')">Messages</div>
+    <div class="nav-tab" onclick="showTab('contract')">Contract</div>
+    <div class="nav-tab" onclick="showTab('contacts')">Contact</div>
+  </div>
+
+  <div class="portal-section active" id="tab-overview">
+    <div class="card">
+      <div class="card-subtitle">Project</div>
+      <div class="card-title" id="ov-project-name">—</div>
+      <div style="font-size:13px;color:var(--muted)" id="ov-address">—</div>
+      <div class="progress-wrap">
+        <div class="progress-label"><span>Progress</span><span id="ov-progress-pct">0%</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="ov-progress-bar" style="width:0%"></div></div>
+      </div>
+      <div class="overview-grid">
+        <div class="overview-stat"><div class="label">Contract Value</div><div class="value" id="ov-contract">—</div></div>
+        <div class="overview-stat"><div class="label">Started</div><div class="value" style="font-size:14px" id="ov-start">—</div></div>
+        <div class="overview-stat"><div class="label">Est. Completion</div><div class="value" style="font-size:14px" id="ov-end">—</div></div>
+        <div class="overview-stat"><div class="label">Status</div><div class="value" style="font-size:14px" id="ov-status">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="portal-section" id="tab-log">
+    <div class="card">
+      <div class="card-title">Daily Log</div>
+      <div id="log-list"><div style="text-align:center;padding:32px;color:var(--muted);font-size:14px">No log entries yet.</div></div>
+    </div>
+  </div>
+
+  <div class="portal-section" id="tab-todos">
+    <div class="card">
+      <div class="card-title">Your Action Items</div>
+      <div id="todo-list"><div style="text-align:center;padding:32px;color:var(--muted);font-size:14px">No items assigned yet.</div></div>
+    </div>
+  </div>
+
+  <div class="portal-section" id="tab-schedule">
+    <div class="card">
+      <div class="card-title">Project Schedule</div>
+      <div id="milestone-list"><div style="text-align:center;padding:32px;color:var(--muted);font-size:14px">No milestones yet.</div></div>
+    </div>
+  </div>
+
+  <div class="portal-section" id="tab-invoices">
+    <div class="card">
+      <div class="card-title">Payments</div>
+      <div id="invoice-list"><div style="text-align:center;padding:32px;color:var(--muted);font-size:14px">No payments on file yet.</div></div>
+    </div>
+  </div>
+
+  <div class="portal-section" id="tab-messages">
+    <div class="card">
+      <div class="card-title">Messages</div>
+      <div class="msg-thread" id="msg-thread"></div>
+      <div class="msg-input-wrap">
+        <input class="msg-input" id="msg-input" type="text" placeholder="Type a message..." />
+        <button class="msg-send" onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="portal-section" id="tab-contract">
+    <div class="card">
+      <div class="contract-status-bar" id="contract-status-bar">
+        <div class="contract-status-icon">📄</div>
+        <div>
+          <div class="contract-status-text" id="contract-status-text">Contract Ready to Sign</div>
+          <div class="contract-status-sub" id="contract-status-sub">Please review and sign below</div>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:14px">Your proposal and contract details will appear here.</div>
+      <button class="btn-primary" id="sign-btn" onclick="openSignature()">Review & Sign Contract</button>
+      <button class="btn-secondary" onclick="showTab('messages')">Questions? Message Us</button>
+    </div>
+  </div>
+
+  <div class="portal-section" id="tab-contacts">
+    <div class="card">
+      <div class="card-subtitle">Your Project Manager</div>
+      <div class="contact-card">
+        <div class="contact-avatar contractor">R</div>
+        <div class="contact-info">
+          <div class="contact-name">Reuben Pemberton</div>
+          <div class="contact-role">Owner — Manor Park Construction</div>
+          <div class="contact-actions">
+            <a href="tel:+12025551234" class="contact-btn btn-call">📞 Call</a>
+            <a href="sms:+12025551234" class="contact-btn btn-text">💬 Text</a>
+            <a href="mailto:reuben@manorparkco.com" class="contact-btn btn-email">✉️ Email</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-subtitle">Your Info On File</div>
+      <div class="contact-card">
+        <div class="contact-avatar" id="client-avatar">?</div>
+        <div class="contact-info">
+          <div class="contact-name" id="client-name">—</div>
+          <div class="contact-role" id="client-email-display">—</div>
+          <div class="contact-actions">
+            <button class="contact-btn btn-msg" onclick="showTab('messages')">💬 Message Us</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sig-modal" id="sig-modal">
+  <div class="sig-sheet">
+    <div class="sig-title">Sign Your Contract</div>
+    <div class="sig-sub">Draw your signature below using your finger or stylus.</div>
+    <div class="sig-canvas-wrap">
+      <canvas id="sig-canvas" height="160"></canvas>
+      <div class="sig-x">✕</div>
+      <div class="sig-line"></div>
+      <button class="sig-clear" onclick="clearSig()">Clear</button>
+    </div>
+    <div class="sig-actions">
+      <button class="sig-btn-cancel" onclick="closeSig()">Cancel</button>
+      <button class="sig-btn-submit" onclick="submitSignature()">Submit Signature</button>
+    </div>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <div class="lightbox-close">×</div>
+  <img id="lightbox-img" src="" alt="Photo" />
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://obwnlsxcroxfalqllpcq.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9id25sc3hjcm94ZmFscWxscGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4NDQwNDgsImV4cCI6MjA4ODQyMDA0OH0.2coJ11bVHwlrv01Z0V-KFfxkZ278LeRp4JY7QFbcSO4';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let projectData = null;
+  let clientData = null;
+  let inviteToken = null;
+
+  async function init() {
+    const params = new URLSearchParams(window.location.search);
+    inviteToken = params.get('token');
+    if (!inviteToken) { showError(); return; }
+    try {
+      const { data: invite, error } = await db
+        .from('client_invites')
+        .select('*, projects(*, customers(*))')
+        .eq('token', inviteToken)
+        .eq('active', true)
+        .single();
+      if (error || !invite) { showError(); return; }
+      projectData = invite.projects;
+      clientData = projectData.customers;
+      renderPortal();
+      loadDynamicData();
+    } catch(e) { showError(); }
+  }
+
+  function showError() {
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('error-screen').style.display = 'block';
+  }
+
+  function renderPortal() {
+    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('portal-wrap').style.display = 'block';
+    const p = projectData;
+    const c = clientData;
+    document.getElementById('hdr-project-name').textContent = p.name || 'Your Project';
+    const badge = document.getElementById('hdr-status');
+    badge.textContent = p.status || 'Active';
+    badge.className = 'status-badge ' + statusClass(p.status);
+    document.getElementById('ov-project-name').textContent = p.name || '—';
+    document.getElementById('ov-address').textContent = p.address || p.job_address || '—';
+    document.getElementById('ov-contract').textContent = p.contract_value ? '$' + parseFloat(p.contract_value).toLocaleString() : '—';
+    document.getElementById('ov-status').textContent = p.status || '—';
+    document.getElementById('ov-start').textContent = p.start_date ? formatDate(p.start_date) : '—';
+    document.getElementById('ov-end').textContent = p.end_date ? formatDate(p.end_date) : '—';
+    if (c) {
+      const initials = ((c.first_name||'')[0]||'') + ((c.last_name||'')[0]||'');
+      document.getElementById('client-avatar').textContent = initials || '?';
+      document.getElementById('client-name').textContent = `${c.first_name||''} ${c.last_name||''}`.trim() || '—';
+      document.getElementById('client-email-display').textContent = c.email || '—';
+    }
+  }
+
+  async function loadDynamicData() {
+    const pid = projectData.id;
+    await Promise.all([loadLog(pid), loadTodos(pid), loadMilestones(pid), loadInvoices(pid), loadMessages(pid)]);
+  }
+
+  async function loadLog(pid) {
+    const { data } = await db.from('daily_logs').select('*').eq('project_id', pid).order('log_date', { ascending: false });
+    const el = document.getElementById('log-list');
+    if (!data || !data.length) return;
+    el.innerHTML = data.map(e => `
+      <div class="log-entry">
+        <div class="log-date">${formatDate(e.log_date)}</div>
+        <div class="log-text">${e.notes || ''}</div>
+        ${e.photos && e.photos.length ? `<div class="log-photos">${e.photos.map(u => `<img class="log-photo" src="${u}" onclick="openLightbox('${u}')" />`).join('')}</div>` : ''}
+      </div>`).join('');
+  }
+
+  async function loadTodos(pid) {
+    const { data } = await db.from('client_todos').select('*').eq('project_id', pid).order('created_at');
+    const el = document.getElementById('todo-list');
+    if (!data || !data.length) return;
+    el.innerHTML = data.map(item => `
+      <div class="todo-item">
+        <div class="todo-check ${item.completed ? 'done' : ''}" onclick="toggleTodo('${item.id}', ${item.completed})"></div>
+        <div class="todo-text">
+          <div class="todo-title ${item.completed ? 'done' : ''}">${item.title}${item.urgent ? '<span class="todo-urgent">Urgent</span>' : ''}</div>
+          ${item.due_date ? `<div class="todo-due">Due ${formatDate(item.due_date)}</div>` : ''}
+        </div>
+      </div>`).join('');
+  }
+
+  async function toggleTodo(id, current) {
+    await db.from('client_todos').update({ completed: !current }).eq('id', id);
+    loadTodos(projectData.id);
+  }
+
+  async function loadMilestones(pid) {
+    const { data } = await db.from('milestones').select('*').eq('project_id', pid).order('due_date');
+    const el = document.getElementById('milestone-list');
+    if (!data || !data.length) return;
+    const done = data.filter(m => m.completed).length;
+    const pct = Math.round((done / data.length) * 100);
+    document.getElementById('ov-progress-pct').textContent = pct + '%';
+    document.getElementById('ov-progress-bar').style.width = pct + '%';
+    el.innerHTML = data.map(m => `
+      <div class="milestone-item">
+        <div class="milestone-dot ${m.completed ? 'done' : 'upcoming'}"></div>
+        <div class="milestone-info">
+          <div class="milestone-name ${m.completed ? 'done' : ''}">${m.title}</div>
+          ${m.due_date ? `<div class="milestone-date">${m.completed ? 'Completed' : 'Target'}: ${formatDate(m.due_date)}</div>` : ''}
+        </div>
+      </div>`).join('');
+  }
+
+  async function loadInvoices(pid) {
+    const { data } = await db.from('proposals').select('payments').eq('project_id', pid).eq('status', 'Approved').order('created_at', { ascending: false }).limit(1);
+    const el = document.getElementById('invoice-list');
+    if (!data || !data.length || !data[0].payments) return;
+    let payments = data[0].payments;
+    if (typeof payments === 'string') payments = JSON.parse(payments);
+    if (!payments.length) return;
+    el.innerHTML = payments.map((p, i) => {
+      const isPaid = p.paid || false;
+      const isNext = !isPaid && payments.slice(0,i).every(prev => prev.paid);
+      const sc = isPaid ? 'inv-paid' : (isNext ? 'inv-due' : 'inv-upcoming');
+      const sl = isPaid ? 'Paid' : (isNext ? 'Due' : 'Upcoming');
+      return `<div class="invoice-item">
+        <div><div class="invoice-desc">${p.description || `Payment ${i+1}`}</div>${p.due_date ? `<div class="invoice-date">${formatDate(p.due_date)}</div>` : ''}</div>
+        <div class="invoice-right"><div class="invoice-amount">$${parseFloat(p.amount||0).toLocaleString()}</div><span class="invoice-status ${sc}">${sl}</span></div>
+      </div>`;
+    }).join('');
+  }
+
+  async function loadMessages(pid) {
+    const { data } = await db.from('messages').select('*').eq('project_id', pid).order('created_at');
+    renderMessages(data || []);
+    db.channel('msg:'+pid).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `project_id=eq.${pid}` }, payload => {
+      const t = document.getElementById('msg-thread');
+      t.innerHTML += renderMsg(payload.new);
+      t.scrollTop = t.scrollHeight;
+    }).subscribe();
+  }
+
+  function renderMessages(msgs) {
+    const el = document.getElementById('msg-thread');
+    if (!msgs.length) { el.innerHTML = '<div style="text-align:center;padding:24px;font-size:13px;color:var(--muted)">No messages yet.</div>'; return; }
+    el.innerHTML = msgs.map(renderMsg).join('');
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function renderMsg(m) {
+    const isClient = m.sender === 'client';
+    return `<div style="display:flex;flex-direction:column;align-items:${isClient?'flex-end':'flex-start'}">
+      <div class="msg-bubble ${isClient?'client':'contractor'}">${m.body||m.message||''}</div>
+      <div class="msg-time" style="margin:2px ${isClient?'4px':'0'} 0">${formatTime(m.created_at)}</div>
+    </div>`;
+  }
+
+  async function sendMessage() {
+    const input = document.getElementById('msg-input');
+    const body = input.value.trim();
+    if (!body) return;
+    input.value = '';
+    await db.from('messages').insert({ project_id: projectData.id, sender: 'client', body, message: body });
+  }
+
+  let sigCanvas, sigCtx, drawing = false, hasSig = false;
+
+  function openSignature() {
+    document.getElementById('sig-modal').classList.add('open');
+    sigCanvas = document.getElementById('sig-canvas');
+    sigCtx = sigCanvas.getContext('2d');
+    sigCanvas.width = sigCanvas.offsetWidth;
+    sigCtx.strokeStyle = '#1a1916';
+    sigCtx.lineWidth = 2.5;
+    sigCtx.lineCap = 'round';
+    sigCtx.lineJoin = 'round';
+    const getPos = e => {
+      const r = sigCanvas.getBoundingClientRect();
+      const s = e.touches ? e.touches[0] : e;
+      return { x: (s.clientX - r.left) * (sigCanvas.width / r.width), y: (s.clientY - r.top) * (sigCanvas.height / r.height) };
+    };
+    sigCanvas.onmousedown = sigCanvas.ontouchstart = e => { e.preventDefault(); drawing = true; const p = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x, p.y); };
+    sigCanvas.onmousemove = sigCanvas.ontouchmove = e => { e.preventDefault(); if (!drawing) return; hasSig = true; const p = getPos(e); sigCtx.lineTo(p.x, p.y); sigCtx.stroke(); };
+    sigCanvas.onmouseup = sigCanvas.ontouchend = () => { drawing = false; };
+  }
+
+  function closeSig() { document.getElementById('sig-modal').classList.remove('open'); }
+  function clearSig() { if (sigCtx) sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height); hasSig = false; }
+
+  async function submitSignature() {
+    if (!hasSig) { alert('Please draw your signature first.'); return; }
+    const sigData = sigCanvas.toDataURL('image/png');
+    await db.from('client_invites').update({ signed: true, signed_at: new Date().toISOString(), signature_data: sigData }).eq('token', inviteToken);
+    closeSig();
+    document.getElementById('contract-status-bar').style.background = '#d4edda';
+    document.getElementById('contract-status-text').textContent = '✓ Contract Signed';
+    document.getElementById('contract-status-sub').textContent = `Signed on ${new Date().toLocaleDateString()}`;
+    const btn = document.getElementById('sign-btn');
+    btn.textContent = 'Contract Signed ✓';
+    btn.style.background = 'var(--green)';
+    btn.disabled = true;
+    alert('Thank you! Your signed contract has been saved.');
+  }
+
+  function showTab(name) {
+    document.querySelectorAll('.portal-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    const tabs = ['overview','log','todos','schedule','invoices','messages','contract','contacts'];
+    document.querySelectorAll('.nav-tab')[tabs.indexOf(name)].classList.add('active');
+  }
+
+  function statusClass(s) {
+    if (!s) return 'status-active';
+    s = s.toLowerCase();
+    if (s.includes('active') || s.includes('progress')) return 'status-active';
+    if (s.includes('complete')) return 'status-complete';
+    return 'status-pending';
+  }
+
+  function formatDate(d) {
+    if (!d) return '—';
+    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function formatTime(d) {
+    if (!d) return '';
+    return new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function openLightbox(url) {
+    document.getElementById('lightbox-img').src = url;
+    document.getElementById('lightbox').classList.add('open');
+  }
+
+  function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+
+  init();
+</script>
+</body>
+</html>
