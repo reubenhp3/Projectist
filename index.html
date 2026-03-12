@@ -994,6 +994,26 @@
         </div>
       </div>
 
+      <!-- SEND CONTRACT MODAL -->
+      <div id="modal-send-contract" class="modal-overlay">
+        <div class="modal">
+          <div class="modal-header"><div class="modal-title">Send Contract</div><button class="modal-close" onclick="closeModal('modal-send-contract')">×</button></div>
+          <div class="modal-body">
+            <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Sending to:</div>
+            <div style="font-size:15px;font-weight:600;margin-bottom:16px" id="send-contract-client-name"></div>
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px;font-size:12px;word-break:break-all;margin-bottom:16px" id="send-contract-link"></div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <button class="btn btn-primary" id="send-contract-email-btn">✉️ Send via Email</button>
+              <button class="btn btn-primary" style="background:var(--accent2)" id="send-contract-text-btn">💬 Send via Text</button>
+              <button class="btn btn-ghost" id="send-contract-copy-btn">📋 Copy Link</button>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('modal-send-contract')">Close</button>
+          </div>
+        </div>
+      </div>
+
       <!-- ADD LOG MODAL -->
       <div id="modal-add-log" class="modal-overlay">
         <div class="modal">
@@ -3132,121 +3152,24 @@ ${paymentsHtml}
 
     const portalLink = token ? `${window.location.origin}/portal.html?token=${token}` : null;
     const clientName = proposal.customers ? `${proposal.customers.first_name} ${proposal.customers.last_name}` : 'Client';
-    const clientEmail = proposal.customers?.email;
-
+    const clientEmail = proposal.customers?.email || '';
+    const clientPhone = proposal.customers?.phone || '';
     const subject = encodeURIComponent(`Your Contract from Manor Park Construction`);
-    const body = encodeURIComponent(`Hi ${clientName},\n\nPlease review and sign your contract using the link below:\n\n${portalLink || '(link unavailable)'}\n\nYou can also view project updates, photos, and your payment schedule through this link.\n\nThank you,\nReuben Pemberton\nManor Park Construction\n(202) 875-7639`);
+    const emailBody = encodeURIComponent(`Hi ${clientName},\n\nPlease review and sign your contract using the link below:\n\n${portalLink || '(link unavailable)'}\n\nYou can also track project updates, photos, and your payment schedule here.\n\nThank you,\nReuben Pemberton\nManor Park Construction\n(202) 875-7639`);
+    const smsBody = encodeURIComponent(`Hi ${clientName}, here is your Manor Park Construction project portal where you can review and sign your contract: ${portalLink}`);
 
-    const choice = confirm(`Send contract to ${clientName}?\n\nClick OK to open email. Cancel to copy link only.`);
+    if (!portalLink) { showToast('Assign this proposal to a project first.'); return; }
 
-    if (choice && clientEmail) {
-      window.open(`mailto:${clientEmail}?subject=${subject}&body=${body}`);
-    } else if (portalLink) {
-      navigator.clipboard.writeText(portalLink);
-      showToast('Portal link copied! Send via text or email.');
-    } else {
-      showToast('Assign this proposal to a project first.');
-    }
+    // Show send modal
+    document.getElementById('send-contract-client-name').textContent = clientName;
+    document.getElementById('send-contract-link').textContent = portalLink;
+    document.getElementById('send-contract-email-btn').onclick = () => { window.open(`mailto:${clientEmail}?subject=${subject}&body=${emailBody}`); closeModal('modal-send-contract'); };
+    document.getElementById('send-contract-text-btn').onclick = () => { window.open(`sms:${clientPhone}?body=${smsBody}`); closeModal('modal-send-contract'); };
+    document.getElementById('send-contract-copy-btn').onclick = () => { navigator.clipboard.writeText(portalLink); showToast('Link copied!'); };
+    openModal('modal-send-contract');
 
-    await db.from('proposals').update({ status: 'sent' }).eq('id', currentProposalId);
-    document.getElementById('detail-status-select').value = 'sent';
-    showToast('Proposal marked as Sent.');
-  }
-
-  async function sendContractToClient() {
-    if (!currentProposalId) return;
-
-    // Get proposal + project + customer info
-    const { data: proposal } = await db.from('proposals').select('*, customers(first_name, last_name, email, phone)').eq('id', currentProposalId).single();
-    if (!proposal) { showToast('Could not load proposal.'); return; }
-
-    // Find or create portal invite for this project
-    let token;
-    if (proposal.project_id) {
-      const { data: existing } = await db.from('client_invites').select('token').eq('project_id', proposal.project_id).eq('active', true).single();
-      if (existing) {
-        token = existing.token;
-      } else {
-        token = crypto.randomUUID();
-        await db.from('client_invites').insert({ project_id: proposal.project_id, token, active: true });
-      }
-    }
-
-    const portalLink = token ? `${window.location.origin}/portal.html?token=${token}` : null;
-    const clientName = proposal.customers ? `${proposal.customers.first_name} ${proposal.customers.last_name}` : 'Client';
-    const clientEmail = proposal.customers?.email;
-    const clientPhone = proposal.customers?.phone;
-
-    // Build email link
-    const subject = encodeURIComponent(`Your Contract from Manor Park Construction`);
-    const body = encodeURIComponent(`Hi ${clientName},\n\nPlease review and sign your contract using the link below:\n\n${portalLink || '(link unavailable)'}\n\nYou can also view project updates, photos, and your payment schedule through this link.\n\nThank you,\nReuben Pemberton\nManor Park Construction\n(202) 875-7639`);
-
-    // Show options modal
-    const msg = `Send contract to ${clientName}?\n\n${portalLink ? 'Portal link: ' + portalLink : 'No portal link — assign this proposal to a project first.'}\n\nChoose how to send:`;
-
-    const choice = confirm(`${msg}\n\nClick OK to open email, Cancel to copy link only.`);
-
-    if (choice && clientEmail) {
-      window.open(`mailto:${clientEmail}?subject=${subject}&body=${body}`);
-    } else if (portalLink) {
-      navigator.clipboard.writeText(portalLink);
-      showToast('Portal link copied! Send it via text or email.');
-    } else {
-      showToast('Assign this proposal to a project first to generate a portal link.');
-    }
-
-    // Update proposal status to Sent
-    await db.from('proposals').update({ status: 'sent' }).eq('id', currentProposalId);
-    document.getElementById('detail-status-select').value = 'sent';
-    showToast('Proposal marked as Sent.');
-  }
-
-  async function sendContractToClient() {
-    if (!currentProposalId) return;
-
-    // Get proposal + project + customer info
-    const { data: proposal } = await db.from('proposals').select('*, customers(first_name, last_name, email, phone)').eq('id', currentProposalId).single();
-    if (!proposal) { showToast('Could not load proposal.'); return; }
-
-    // Find or create portal invite for this project
-    let token;
-    if (proposal.project_id) {
-      const { data: existing } = await db.from('client_invites').select('token').eq('project_id', proposal.project_id).eq('active', true).single();
-      if (existing) {
-        token = existing.token;
-      } else {
-        token = crypto.randomUUID();
-        await db.from('client_invites').insert({ project_id: proposal.project_id, token, active: true });
-      }
-    }
-
-    const portalLink = token ? `${window.location.origin}/portal.html?token=${token}` : null;
-    const clientName = proposal.customers ? `${proposal.customers.first_name} ${proposal.customers.last_name}` : 'Client';
-    const clientEmail = proposal.customers?.email;
-    const clientPhone = proposal.customers?.phone;
-
-    // Build email link
-    const subject = encodeURIComponent(`Your Contract from Manor Park Construction`);
-    const body = encodeURIComponent(`Hi ${clientName},\n\nPlease review and sign your contract using the link below:\n\n${portalLink || '(link unavailable)'}\n\nYou can also view project updates, photos, and your payment schedule through this link.\n\nThank you,\nReuben Pemberton\nManor Park Construction\n(202) 875-7639`);
-
-    // Show options modal
-    const msg = `Send contract to ${clientName}?\n\n${portalLink ? 'Portal link: ' + portalLink : 'No portal link — assign this proposal to a project first.'}\n\nChoose how to send:`;
-
-    const choice = confirm(`${msg}\n\nClick OK to open email, Cancel to copy link only.`);
-
-    if (choice && clientEmail) {
-      window.open(`mailto:${clientEmail}?subject=${subject}&body=${body}`);
-    } else if (portalLink) {
-      navigator.clipboard.writeText(portalLink);
-      showToast('Portal link copied! Send it via text or email.');
-    } else {
-      showToast('Assign this proposal to a project first to generate a portal link.');
-    }
-
-    // Update proposal status to Sent
-    await db.from('proposals').update({ status: 'sent' }).eq('id', currentProposalId);
-    document.getElementById('detail-status-select').value = 'sent';
-    showToast('Proposal marked as Sent.');
+    await db.from('proposals').update({ status: 'Sent' }).eq('id', currentProposalId);
+    document.getElementById('detail-status-select').value = 'Sent';
   }
 
   window.addEventListener('load', function() {
