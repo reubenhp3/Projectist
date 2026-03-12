@@ -2392,6 +2392,26 @@ ${paymentsHtml}
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById('view-' + name).classList.add('active');
     if (el) el.classList.add('active');
+    if (name === 'dashboard') loadDashboardStats();
+  }
+
+  async function loadDashboardStats() {
+    const [{ count: projectCount }, { count: customerCount }, { count: proposalCount }, { data: proposals }] = await Promise.all([
+      db.from('projects').select('*', { count: 'exact', head: true }).eq('status', 'Active'),
+      db.from('customers').select('*', { count: 'exact', head: true }),
+      db.from('proposals').select('*', { count: 'exact', head: true }).in('status', ['Sent', 'Draft']),
+      db.from('proposals').select('total_amount').eq('status', 'Approved')
+    ]);
+
+    document.getElementById('stat-projects').textContent = projectCount ?? '—';
+    document.getElementById('stat-customers').textContent = customerCount ?? '—';
+
+    const proposalEl = document.querySelector('.stat-card:nth-child(2) .stat-value');
+    if (proposalEl) proposalEl.textContent = proposalCount ?? '—';
+
+    const ytd = (proposals || []).reduce((sum, p) => sum + (parseFloat(p.total_amount) || 0), 0);
+    const revenueEl = document.querySelector('.stat-card:nth-child(3) .stat-value');
+    if (revenueEl) revenueEl.textContent = ytd > 0 ? '$' + (ytd / 1000).toFixed(0) + 'k' : '$0';
   }
 
   function openModal(id) {
