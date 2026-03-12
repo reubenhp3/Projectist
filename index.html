@@ -994,6 +994,37 @@
         </div>
       </div>
 
+      <!-- ADD LOG MODAL -->
+      <div id="modal-add-log" class="modal-overlay">
+        <div class="modal">
+          <div class="modal-header"><div class="modal-title">Add Daily Log Entry</div><button class="modal-close" onclick="closeModal('modal-add-log')">×</button></div>
+          <div class="modal-body">
+            <div class="form-group"><label class="form-label">Date</label><input type="date" id="log-date" class="form-input"></div>
+            <div class="form-group"><label class="form-label">Notes</label><textarea id="log-notes" class="form-input" style="min-height:120px" placeholder="What happened on site today?"></textarea></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('modal-add-log')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveLogEntry()">Save Entry</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADD TODO MODAL -->
+      <div id="modal-add-todo" class="modal-overlay">
+        <div class="modal">
+          <div class="modal-header"><div class="modal-title">Add Client To-Do</div><button class="modal-close" onclick="closeModal('modal-add-todo')">×</button></div>
+          <div class="modal-body">
+            <div class="form-group"><label class="form-label">Task</label><input type="text" id="todo-title" class="form-input" placeholder="e.g. Select tile color"></div>
+            <div class="form-group"><label class="form-label">Due Date (optional)</label><input type="date" id="todo-due" class="form-input"></div>
+            <div class="form-group" style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="todo-urgent"><label for="todo-urgent" style="font-size:13px">Mark as Urgent</label></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-ghost" onclick="closeModal('modal-add-todo')">Cancel</button>
+            <button class="btn btn-primary" onclick="saveClientTodo()">Add Item</button>
+          </div>
+        </div>
+      </div>
+
       <!-- ADD COST MODAL -->
   <div id="modal-add-cost" class="modal-overlay">
     <div class="modal">
@@ -2410,11 +2441,324 @@ ${paymentsHtml}
     currentProjectId = null;
   }
 
-  function showPdTab(tab, el) {
+ function showPdTab(tab, el) {
     document.querySelectorAll('.pd-tab-content').forEach(t => t.style.display = 'none');
     document.querySelectorAll('.pd-tab').forEach(t => t.classList.remove('active'));
     document.getElementById('pd-tab-' + tab).style.display = 'block';
     if (el) el.classList.add('active');
+    if (tab === 'portal') loadPortalTab();
+  }
+
+  async function loadPortalTab() {
+    const pid = currentProjectId;
+    document.getElementById('portal-link-loading').style.display = 'block';
+    document.getElementById('portal-link-display').style.display = 'none';
+    document.getElementById('portal-link-generate').style.display = 'none';
+
+    const { data } = await db.from('client_invites').select('*').eq('project_id', pid).eq('active', true).single();
+
+    document.getElementById('portal-link-loading').style.display = 'none';
+
+    if (data) {
+      const link = `${window.location.origin}/portal.html?token=${data.token}`;
+      document.getElementById('portal-link-text').textContent = link;
+      document.getElementById('portal-link-display').style.display = 'block';
+    } else {
+      document.getElementById('portal-link-generate').style.display = 'block';
+    }
+
+    loadPortalLog(pid);
+    loadPortalTodos(pid);
+  }
+
+  async function generatePortalLink() {
+    const pid = currentProjectId;
+    const token = crypto.randomUUID();
+    await db.from('client_invites').update({ active: false }).eq('project_id', pid);
+    await db.from('client_invites').insert({ project_id: pid, token, active: true });
+    loadPortalTab();
+  }
+
+  function copyPortalLink() {
+    const link = document.getElementById('portal-link-text').textContent;
+    navigator.clipboard.writeText(link);
+    showToast('Link copied!');
+  }
+
+  async function loadPortalLog(pid) {
+    const { data } = await db.from('daily_logs').select('*').eq('project_id', pid).order('log_date', { ascending: false });
+    const el = document.getElementById('pd-log-list');
+    if (!data || !data.length) { el.innerHTML = '<div style="font-size:13px;color:var(--muted)">No log entries yet.</div>'; return; }
+    el.innerHTML = data.map(e => `
+      <div style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
+        <div style="font-size:11px;font-weight:600;color:var(--accent);text-transform:uppercase;margin-bottom:4px">${e.log_date}</div>
+        <div style="font-size:13px">${e.notes || ''}</div>
+      </div>`).join('');
+  }
+
+  async function loadPortalTodos(pid) {
+    const { data } = await db.from('client_todos').select('*').eq('project_id', pid).order('created_at');
+    const el = document.getElementById('pd-todo-list');
+    if (!data || !data.length) { el.innerHTML = '<div style="font-size:13px;color:var(--muted)">No to-do items yet.</div>'; return; }
+    el.innerHTML = data.map(t => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
+        <div style="font-size:13px;flex:1;${t.completed ? 'text-decoration:line-through;color:var(--muted)' : ''}">${t.title}${t.urgent ? ' <span style="font-size:10px;background:#fde8e8;color:#c0392b;padding:2px 6px;border-radius:4px;font-weight:600">Urgent</span>' : ''}</div>
+        <button class="btn btn-ghost" style="font-size:11px;padding:4px 8px" onclick="deleteClientTodo('${t.id}')">Remove</button>
+      </div>`).join('');
+  }
+
+  async function deleteClientTodo(id) {
+    await db.from('client_todos').delete().eq('id', id);
+    loadPortalTodos(currentProjectId);
+  }
+  async function saveLogEntry() {
+    const date = document.getElementById('log-date').value;
+    const notes = document.getElementById('log-notes').value.trim();
+    if (!date || !notes) { showToast('Please fill in date and notes.'); return; }
+    await db.from('daily_logs').insert({ project_id: currentProjectId, log_date: date, notes });
+    closeModal('modal-add-log');
+    document.getElementById('log-notes').value = '';
+    showToast('Log entry saved!');
+    loadPortalLog(currentProjectId);
+  }
+
+  async function saveClientTodo() {
+    const title = document.getElementById('todo-title').value.trim();
+    const due_date = document.getElementById('todo-due').value || null;
+    const urgent = document.getElementById('todo-urgent').checked;
+    if (!title) { showToast('Please enter a task.'); return; }
+    await db.from('client_todos').insert({ project_id: currentProjectId, title, due_date, urgent });
+    closeModal('modal-add-todo');
+    document.getElementById('todo-title').value = '';
+    document.getElementById('todo-due').value = '';
+    document.getElementById('todo-urgent').checked = false;
+    showToast('To-do added!');
+    loadPortalTodos(currentProjectId);
+  }
+
+  async function saveLogEntry() {
+    const date = document.getElementById('log-date').value;
+    const notes = document.getElementById('log-notes').value.trim();
+    if (!date || !notes) { showToast('Please fill in date and notes.'); return; }
+    await db.from('daily_logs').insert({ project_id: currentProjectId, log_date: date, notes });
+    closeModal('modal-add-log');
+    document.getElementById('log-notes').value = '';
+    showToast('Log entry saved!');
+    loadPortalLog(currentProjectId);
+  }
+
+  async function saveClientTodo() {
+    const title = document.getElementById('todo-title').value.trim();
+    const due_date = document.getElementById('todo-due').value || null;
+    const urgent = document.getElementById('todo-urgent').checked;
+    if (!title) { showToast('Please enter a task.'); return; }
+    await db.from('client_todos').insert({ project_id: currentProjectId, title, due_date, urgent });
+    closeModal('modal-add-todo');
+    document.getElementById('todo-title').value = '';
+    document.getElementById('todo-due').value = '';
+    document.getElementById('todo-urgent').checked = false;
+    showToast('To-do added!');
+    loadPortalTodos(currentProjectId);
+  }
+
+  async function saveLogEntry() {
+    const date = document.getElementById('log-date').value;
+    const notes = document.getElementById('log-notes').value.trim();
+    if (!date || !notes) { showToast('Please fill in date and notes.'); return; }
+    await db.from('daily_logs').insert({ project_id: currentProjectId, log_date: date, notes });
+    closeModal('modal-add-log');
+    document.getElementById('log-notes').value = '';
+    showToast('Log entry saved!');
+    loadPortalLog(currentProjectId);
+  }
+
+  async function saveClientTodo() {
+    const title = document.getElementById('todo-title').value.trim();
+    const due_date = document.getElementById('todo-due').value || null;
+    const urgent = document.getElementById('todo-urgent').checked;
+    if (!title) { showToast('Please enter a task.'); return; }
+    await db.from('client_todos').insert({ project_id: currentProjectId, title, due_date, urgent });
+    closeModal('modal-add-todo');
+    document.getElementById('todo-title').value = '';
+    document.getElementById('todo-due').value = '';
+    document.getElementById('todo-urgent').checked = false;
+    showToast('To-do added!');
+    loadPortalTodos(currentProjectId);
+  }
+
+  async function saveLogEntry() {
+    const date = document.getElementById('log-date').value;
+    const notes = document.getElementById('log-notes').value.trim();
+    if (!date || !notes) { showToast('Please fill in date and notes.'); return; }
+    await db.from('daily_logs').insert({ project_id: currentProjectId, log_date: date, notes });
+    closeModal('modal-add-log');
+    document.getElementById('log-notes').value = '';
+    showToast('Log entry saved!');
+    loadPortalLog(currentProjectId);
+  }
+
+  async function saveClientTodo() {
+    const title = document.getElementById('todo-title').value.trim();
+    const due_date = document.getElementById('todo-due').value || null;
+    const urgent = document.getElementById('todo-urgent').checked;
+    if (!title) { showToast('Please enter a task.'); return; }
+    await db.from('client_todos').insert({ project_id: currentProjectId, title, due_date, urgent });
+    closeModal('modal-add-todo');
+    document.getElementById('todo-title').value = '';
+    document.getElementById('todo-due').value = '';
+    document.getElementById('todo-urgent').checked = false;
+    showToast('To-do added!');
+    loadPortalTodos(currentProjectId);
+  }
+
+  async function saveLogEntry() {
+    const date = document.getElementById('log-date').value;
+    const notes = document.getElementById('log-notes').value.trim();
+    if (!date || !notes) { showToast('Please fill in date and notes.'); return; }
+    await db.from('daily_logs').insert({ project_id: currentProjectId, log_date: date, notes });
+    closeModal('modal-add-log');
+    document.getElementById('log-notes').value = '';
+    showToast('Log entry saved!');
+    loadPortalLog(currentProjectId);
+  }
+
+  async function saveClientTodo() {
+    const title = document.getElementById('todo-title').value.trim();
+    const due_date = document.getElementById('todo-due').value || null;
+    const urgent = document.getElementById('todo-urgent').checked;
+    if (!title) { showToast('Please enter a task.'); return; }
+    await db.from('client_todos').insert({ project_id: currentProjectId, title, due_date, urgent });
+    closeModal('modal-add-todo');
+    document.getElementById('todo-title').value = '';
+    document.getElementById('todo-due').value = '';
+    document.getElementById('todo-urgent').checked = false;
+    showToast('To-do added!');
+    loadPortalTodos(currentProjectId);
+  }
+
+  async function saveLogEntry() {
+    const date = document.getElementById('log-date').value;
+    const notes = document.getElementById('log-notes').value.trim();
+    if (!date || !notes) { showToast('Please fill in date and notes.'); return; }
+    await db.from('daily_logs').insert({ project_id: currentProjectId, log_date: date, notes });
+    closeModal('modal-add-log');
+    document.getElementById('log-notes').value = '';
+    showToast('Log entry saved!');
+    loadPortalLog(currentProjectId);
+  }
+
+  async function saveClientTodo() {
+    const title = document.getElementById('todo-title').value.trim();
+    const due_date = document.getElementById('todo-due').value || null;
+    const urgent = document.getElementById('todo-urgent').checked;
+    if (!title) { showToast('Please enter a task.'); return; }
+    await db.from('client_todos').insert({ project_id: currentProjectId, title, due_date, urgent });
+    closeModal('modal-add-todo');
+    document.getElementById('todo-title').value = '';
+    document.getElementById('todo-due').value = '';
+    document.getElementById('todo-urgent').checked = false;
+    showToast('To-do added!');
+    loadPortalTodos(currentProjectId);
+  }
+
+  async function saveLogEntry() {
+    const date = document.getElementById('log-date').value;
+    const notes = document.getElementById('log-notes').value.trim();
+    if (!date || !notes) { showToast('Please fill in date and notes.'); return; }
+    await db.from('daily_logs').insert({ project_id: currentProjectId, log_date: date, notes });
+    closeModal('modal-add-log');
+    document.getElementById('log-notes').value = '';
+    showToast('Log entry saved!');
+    loadPortalLog(currentProjectId);
+  }
+
+  async function saveClientTodo() {
+    const title = document.getElementById('todo-title').value.trim();
+    const due_date = document.getElementById('todo-due').value || null;
+    const urgent = document.getElementById('todo-urgent').checked;
+    if (!title) { showToast('Please enter a task.'); return; }
+    await db.from('client_todos').insert({ project_id: currentProjectId, title, due_date, urgent });
+    closeModal('modal-add-todo');
+    document.getElementById('todo-title').value = '';
+    document.getElementById('todo-due').value = '';
+    document.getElementById('todo-urgent').checked = false;
+    showToast('To-do added!');
+    loadPortalTodos(currentProjectId);
+  }
+
+  async function saveLogEntry() {
+    const date = document.getElementById('log-date').value;
+    const notes = document.getElementById('log-notes').value.trim();
+    if (!date || !notes) { showToast('Please fill in date and notes.'); return; }
+    await db.from('daily_logs').insert({ project_id: currentProjectId, log_date: date, notes });
+    closeModal('modal-add-log');
+    document.getElementById('log-notes').value = '';
+    showToast('Log entry saved!');
+    loadPortalLog(currentProjectId);
+  }
+
+  async function saveClientTodo() {
+    const title = document.getElementById('todo-title').value.trim();
+    const due_date = document.getElementById('todo-due').value || null;
+    const urgent = document.getElementById('todo-urgent').checked;
+    if (!title) { showToast('Please enter a task.'); return; }
+    await db.from('client_todos').insert({ project_id: currentProjectId, title, due_date, urgent });
+    closeModal('modal-add-todo');
+    document.getElementById('todo-title').value = '';
+    document.getElementById('todo-due').value = '';
+    document.getElementById('todo-urgent').checked = false;
+    showToast('To-do added!');
+    loadPortalTodos(currentProjectId);
+  }
+
+  async function saveLogEntry() {
+    const date = document.getElementById('log-date').value;
+    const notes = document.getElementById('log-notes').value.trim();
+    if (!date || !notes) { showToast('Please fill in date and notes.'); return; }
+    await db.from('daily_logs').insert({ project_id: currentProjectId, log_date: date, notes });
+    closeModal('modal-add-log');
+    document.getElementById('log-notes').value = '';
+    showToast('Log entry saved!');
+    loadPortalLog(currentProjectId);
+  }
+
+  async function saveClientTodo() {
+    const title = document.getElementById('todo-title').value.trim();
+    const due_date = document.getElementById('todo-due').value || null;
+    const urgent = document.getElementById('todo-urgent').checked;
+    if (!title) { showToast('Please enter a task.'); return; }
+    await db.from('client_todos').insert({ project_id: currentProjectId, title, due_date, urgent });
+    closeModal('modal-add-todo');
+    document.getElementById('todo-title').value = '';
+    document.getElementById('todo-due').value = '';
+    document.getElementById('todo-urgent').checked = false;
+    showToast('To-do added!');
+    loadPortalTodos(currentProjectId);
+  }
+
+  async function saveLogEntry() {
+    const date = document.getElementById('log-date').value;
+    const notes = document.getElementById('log-notes').value.trim();
+    if (!date || !notes) { showToast('Please fill in date and notes.'); return; }
+    await db.from('daily_logs').insert({ project_id: currentProjectId, log_date: date, notes });
+    closeModal('modal-add-log');
+    document.getElementById('log-notes').value = '';
+    showToast('Log entry saved!');
+    loadPortalLog(currentProjectId);
+  }
+
+  async function saveClientTodo() {
+    const title = document.getElementById('todo-title').value.trim();
+    const due_date = document.getElementById('todo-due').value || null;
+    const urgent = document.getElementById('todo-urgent').checked;
+    if (!title) { showToast('Please enter a task.'); return; }
+    await db.from('client_todos').insert({ project_id: currentProjectId, title, due_date, urgent });
+    closeModal('modal-add-todo');
+    document.getElementById('todo-title').value = '';
+    document.getElementById('todo-due').value = '';
+    document.getElementById('todo-urgent').checked = false;
+    showToast('To-do added!');
+    loadPortalTodos(currentProjectId);
   }
 
   async function updateProjectStatus() {
