@@ -858,7 +858,9 @@
         <button class="btn btn-primary" onclick="openModal('modal-new-customer')">+ New Customer</button>
       </div>
     </div>
-    <div class="content">
+
+    <!-- CUSTOMER LIST -->
+    <div class="content" id="customers-list-view">
       <div class="card">
         <div class="card-header">
           <div class="card-title">All Customers</div>
@@ -907,6 +909,55 @@
         </table>
       </div>
     </div>
+
+    <!-- CUSTOMER DETAIL / EDIT -->
+    <div class="content" id="customers-detail-view" style="display:none">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px">
+        <div>
+          <div id="cdetail-name" style="font-size:20px; font-weight:700">Customer</div>
+          <div id="cdetail-subtitle" style="font-size:13px; color:var(--muted); margin-top:3px"></div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-ghost" onclick="hideCustomerDetail()">← Back</button>
+          <button class="btn btn-ghost" id="cdetail-edit-btn" onclick="toggleCustomerEdit()">✏ Edit</button>
+          <button class="btn btn-primary" id="cdetail-save-btn" onclick="saveCustomerEdits()" style="display:none">Save Changes</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="card" style="padding:24px">
+          <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:16px">CONTACT INFO</div>
+          <div class="form-group">
+            <label class="form-label">First Name</label>
+            <input id="cdetail-first" class="form-input" type="text" disabled>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name</label>
+            <input id="cdetail-last" class="form-input" type="text" disabled>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input id="cdetail-email" class="form-input" type="email" disabled>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input id="cdetail-phone" class="form-input" type="text" disabled>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Address</label>
+            <input id="cdetail-address" class="form-input" type="text" disabled>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes</label>
+            <textarea id="cdetail-notes" class="form-input" style="min-height:80px" disabled></textarea>
+          </div>
+        </div>
+        <div class="card" style="padding:24px">
+          <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:16px">PROJECTS</div>
+          <div id="cdetail-projects" style="font-size:14px;color:var(--muted)">Loading...</div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- PROPOSALS -->
@@ -1449,7 +1500,7 @@
     }
 
     tbody.innerHTML = data.map(c => `
-      <tr>
+      <tr style="cursor:pointer" onclick="openCustomerDetail('${c.id}')">
         <td><strong>${c.first_name} ${c.last_name}</strong></td>
         <td>${c.email || '—'}</td>
         <td>${c.phone || '—'}</td>
@@ -2126,6 +2177,80 @@ ${paymentsHtml}
       if (e.target === this) this.classList.remove('open');
     });
   });
+
+  let currentCustomerId = null;
+
+  async function openCustomerDetail(id) {
+    currentCustomerId = id;
+    const { data, error } = await db.from('customers').select('*').eq('id', id).single();
+    if (error || !data) { showToast('Could not load customer.'); return; }
+
+    document.getElementById('customers-list-view').style.display = 'none';
+    document.getElementById('customers-detail-view').style.display = 'block';
+
+    document.getElementById('cdetail-name').textContent = data.first_name + ' ' + data.last_name;
+    document.getElementById('cdetail-subtitle').textContent = data.email || '';
+    document.getElementById('cdetail-first').value = data.first_name || '';
+    document.getElementById('cdetail-last').value = data.last_name || '';
+    document.getElementById('cdetail-email').value = data.email || '';
+    document.getElementById('cdetail-phone').value = data.phone || '';
+    document.getElementById('cdetail-address').value = data.address || '';
+    document.getElementById('cdetail-notes').value = data.notes || '';
+
+    // Reset to view mode
+    setCustomerEditMode(false);
+
+    // Load their projects
+    const { data: projects } = await db.from('projects').select('*').eq('customer_id', id);
+    const projDiv = document.getElementById('cdetail-projects');
+    if (!projects || projects.length === 0) {
+      projDiv.innerHTML = '<div style="color:var(--muted);font-size:13px">No projects yet.</div>';
+    } else {
+      projDiv.innerHTML = projects.map(p => `
+        <div style="padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:10px">
+          <div style="font-weight:600;font-size:14px">${p.name || 'Untitled Project'}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">${p.address || ''}</div>
+          <div style="font-size:12px;color:var(--muted)">${p.status || ''} ${p.contract_value ? '— $' + Number(p.contract_value).toLocaleString() : ''}</div>
+        </div>
+      `).join('');
+    }
+  }
+
+  function hideCustomerDetail() {
+    document.getElementById('customers-detail-view').style.display = 'none';
+    document.getElementById('customers-list-view').style.display = 'block';
+    currentCustomerId = null;
+  }
+
+  function setCustomerEditMode(editing) {
+    const fields = ['cdetail-first','cdetail-last','cdetail-email','cdetail-phone','cdetail-address','cdetail-notes'];
+    fields.forEach(id => document.getElementById(id).disabled = !editing);
+    document.getElementById('cdetail-edit-btn').style.display = editing ? 'none' : '';
+    document.getElementById('cdetail-save-btn').style.display = editing ? '' : 'none';
+  }
+
+  function toggleCustomerEdit() {
+    setCustomerEditMode(true);
+  }
+
+  async function saveCustomerEdits() {
+    if (!currentCustomerId) return;
+    const updates = {
+      first_name: document.getElementById('cdetail-first').value.trim(),
+      last_name: document.getElementById('cdetail-last').value.trim(),
+      email: document.getElementById('cdetail-email').value.trim(),
+      phone: document.getElementById('cdetail-phone').value.trim(),
+      address: document.getElementById('cdetail-address').value.trim(),
+      notes: document.getElementById('cdetail-notes').value.trim()
+    };
+    const { error } = await db.from('customers').update(updates).eq('id', currentCustomerId);
+    if (error) { showToast('Error saving: ' + error.message); return; }
+    document.getElementById('cdetail-name').textContent = updates.first_name + ' ' + updates.last_name;
+    document.getElementById('cdetail-subtitle').textContent = updates.email;
+    setCustomerEditMode(false);
+    showToast('Customer saved!');
+    loadCustomers();
+  }
 
   let currentProposalId = null;
 
