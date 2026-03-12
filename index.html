@@ -658,22 +658,22 @@
     </div>
     <div class="content">
       <div class="stats-row">
-        <div class="stat-card">
+        <div class="stat-card" onclick="showView('projects', document.querySelector('[onclick*=projects]'))" style="cursor:pointer">
           <div class="stat-label">Active Projects</div>
           <div id="stat-projects" class="stat-value">—</div>
           <div class="stat-sub">↑ 1 this month</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" onclick="showView('proposals', document.querySelector('[onclick*=proposals]'))" style="cursor:pointer">
           <div class="stat-label">Open Proposals</div>
-          <div class="stat-value">3</div>
+          <div id="stat-proposals" class="stat-value">—</div>
           <div class="stat-sub" style="color: var(--accent)">Awaiting response</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" style="cursor:default">
           <div class="stat-label">Revenue (YTD)</div>
-          <div class="stat-value">$187k</div>
-          <div class="stat-sub">↑ On track</div>
+          <div id="stat-revenue" class="stat-value">—</div>
+          <div class="stat-sub">↑ Approved contracts</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" onclick="showView('customers', document.querySelector('[onclick*=customers]'))" style="cursor:pointer">
           <div class="stat-label">Customers</div>
           <div id="stat-customers" class="stat-value">—</div>
           <div class="stat-sub" style="color: var(--muted)">Total</div>
@@ -2406,12 +2406,10 @@ ${paymentsHtml}
     document.getElementById('stat-projects').textContent = projectCount ?? '—';
     document.getElementById('stat-customers').textContent = customerCount ?? '—';
 
-    const proposalEl = document.querySelector('.stat-card:nth-child(2) .stat-value');
-    if (proposalEl) proposalEl.textContent = proposalCount ?? '—';
+    document.getElementById('stat-proposals').textContent = proposalCount ?? '—';
 
     const ytd = (proposals || []).reduce((sum, p) => sum + (parseFloat(p.total_amount) || 0), 0);
-    const revenueEl = document.querySelector('.stat-card:nth-child(3) .stat-value');
-    if (revenueEl) revenueEl.textContent = ytd > 0 ? '$' + (ytd / 1000).toFixed(0) + 'k' : '$0';
+    document.getElementById('stat-revenue').textContent = ytd > 0 ? '$' + (ytd / 1000).toFixed(0) + 'k' : '$0';
   }
 
   function openModal(id) {
