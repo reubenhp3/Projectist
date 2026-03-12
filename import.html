@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Projectist — Data Import</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f5f3ef; color: #1a1916; padding: 32px; max-width: 700px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 4px; }
+    .sub { color: #7a7872; font-size: 13px; margin-bottom: 32px; }
+    .card { background: #fff; border: 1px solid #dddbd6; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .card h2 { font-size: 16px; margin-bottom: 6px; }
+    .card p { font-size: 13px; color: #7a7872; margin-bottom: 14px; }
+    input[type=file] { display: block; margin-bottom: 12px; font-size: 13px; }
+    button { padding: 10px 20px; background: #b85c2a; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    .log { margin-top: 14px; background: #1a1916; color: #d4f5d4; border-radius: 8px; padding: 14px; font-size: 12px; font-family: monospace; max-height: 300px; overflow-y: auto; white-space: pre-wrap; display: none; }
+    .progress { margin-top: 10px; height: 8px; background: #eeece8; border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: #b85c2a; border-radius: 4px; transition: width 0.3s; width: 0%; }
+  </style>
+</head>
+<body>
+
+<h1>Projectist Data Import</h1>
+<div class="sub">Import your Buildertrend exports into Supabase. Run each import once.</div>
+
+<!-- CLIENTS -->
+<div class="card">
+  <h2>📋 Client Contacts</h2>
+  <p>Select your <strong>ClientContacts.xlsx</strong> file from Buildertrend.</p>
+  <input type="file" id="client-file" accept=".xlsx,.xls" />
+  <button onclick="importClients()">Import Clients</button>
+  <div class="progress"><div class="progress-fill" id="client-progress"></div></div>
+  <div class="log" id="client-log"></div>
+</div>
+
+<!-- SUBS -->
+<div class="card">
+  <h2>🔨 Subcontractors</h2>
+  <p>Select your <strong>Subs.xlsx</strong> file from Buildertrend.</p>
+  <input type="file" id="sub-file" accept=".xlsx,.xls" />
+  <button onclick="importSubs()">Import Subs</button>
+  <div class="progress"><div class="progress-fill" id="sub-progress"></div></div>
+  <div class="log" id="sub-log"></div>
+</div>
+
+<script>
+  const SUPABASE_URL = 'https://obwnlsxcroxfalqllpcq.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9id25sc3hjcm94ZmFscWxscGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4NDQwNDgsImV4cCI6MjA4ODQyMDA0OH0.2coJ11bVHwlrv01Z0V-KFfxkZ278LeRp4JY7QFbcSO4';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  function log(elId, msg) {
+    const el = document.getElementById(elId);
+    el.style.display = 'block';
+    el.textContent += msg + '\n';
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function setProgress(elId, pct) {
+    document.getElementById(elId).style.width = pct + '%';
+  }
+
+  function readExcel(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const wb = XLSX.read(e.target.result, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+        resolve(rows);
+      };
+      reader.readAsBinaryString(file);
+    });
+  }
+
+  async function importClients() {
+    const file = document.getElementById('client-file').files[0];
+    if (!file) { alert('Please select the ClientContacts.xlsx file.'); return; }
+
+    log('client-log', 'Reading file...');
+    const rows = await readExcel(file);
+
+    // Row 0 is title, Row 1 is headers, data starts Row 2
+    // Headers: Name, Activation Status, Phone, Cell, Address, City, State, Zip, Jobs, Lead Opportunities, Email, First Name, Last Name
+    const dataRows = rows.slice(2).filter(r => r[0]);
+    log('client-log', `Found ${dataRows.length} client records.`);
+
+    let success = 0, skipped = 0, errors = 0;
+    const batchSize = 50;
+
+    for (let i = 0; i < dataRows.length; i += batchSize) {
+      const batch = dataRows.slice(i, i + batchSize).map(r => {
+        const fullName = (r[0] || '').trim();
+        let firstName = (r[11] || '').trim();
+        let lastName = (r[12] || '').trim();
+
+        // If no first/last, split from full name
+        if (!firstName && !lastName && fullName) {
+          const parts = fullName.split(/[\s,]+/).filter(Boolean);
+          if (parts.length >= 2) {
+            // Check if it's "LASTNAME, FIRSTNAME" format
+            if (fullName.includes(',')) {
+              lastName = parts[0];
+              firstName = parts.slice(1).join(' ');
+            } else {
+              firstName = parts[0];
+              lastName = parts.slice(1).join(' ');
+            }
+          } else {
+            firstName = fullName;
+          }
+        }
+
+        return {
+          first_name: firstName || fullName,
+          last_name: lastName || null,
+          phone: (r[2] || r[3] || '').toString().trim() || null,
+          email: (r[10] || '').toString().trim() || null,
+          address: [r[4], r[5], r[6], r[7]].filter(Boolean).join(', ') || null,
+        };
+      }).filter(r => r.first_name);
+
+      const { error } = await db.from('customers').insert(batch);
+      if (error) {
+        errors += batch.length;
+        log('client-log', `Batch error: ${error.message}`);
+      } else {
+        success += batch.length;
+      }
+
+      const pct = Math.round(((i + batchSize) / dataRows.length) * 100);
+      setProgress('client-progress', Math.min(pct, 100));
+      log('client-log', `Imported ${Math.min(i + batchSize, dataRows.length)} of ${dataRows.length}...`);
+    }
+
+    log('client-log', `\n✅ Done! ${success} imported, ${errors} errors.`);
+  }
+
+  async function importSubs() {
+    const file = document.getElementById('sub-file').files[0];
+    if (!file) { alert('Please select the Subs.xlsx file.'); return; }
+
+    log('sub-log', 'Reading file...');
+    const rows = await readExcel(file);
+
+    // Row 0 is title, Row 1 is headers, data starts Row 2
+    // Headers: Company, Division, Activation, Primary contact, Trade agreement status, Liability exp., Worker's comp exp., Cell, Phone
+    const dataRows = rows.slice(2).filter(r => r[0]);
+    log('sub-log', `Found ${dataRows.length} subcontractor records.`);
+
+    let success = 0, errors = 0;
+    const batchSize = 50;
+
+    for (let i = 0; i < dataRows.length; i += batchSize) {
+      const batch = dataRows.slice(i, i + batchSize).map(r => ({
+        company: (r[0] || '').toString().trim(),
+        division: (r[1] || '').toString().trim() || null,
+        contact_name: (r[3] || '').toString().trim() || null,
+        cell: (r[7] || '').toString().trim() || null,
+        phone: (r[8] || '').toString().trim() || null,
+      })).filter(r => r.company);
+
+      const { error } = await db.from('subcontractors').insert(batch);
+      if (error) {
+        errors += batch.length;
+        log('sub-log', `Batch error: ${error.message}`);
+      } else {
+        success += batch.length;
+      }
+
+      const pct = Math.round(((i + batchSize) / dataRows.length) * 100);
+      setProgress('sub-progress', Math.min(pct, 100));
+      log('sub-log', `Imported ${Math.min(i + batchSize, dataRows.length)} of ${dataRows.length}...`);
+    }
+
+    log('sub-log', `\n✅ Done! ${success} imported, ${errors} errors.`);
+  }
+</script>
+</body>
+</html>
