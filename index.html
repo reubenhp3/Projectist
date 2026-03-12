@@ -1204,6 +1204,7 @@
         <div style="display:flex;gap:10px">
           <button class="btn btn-ghost" onclick="hideProposalDetail()">← Back</button>
           <button class="btn btn-ghost" onclick="printDetailProposal()">🖨 Print</button>
+          <button class="btn btn-primary" onclick="sendContractToClient()" id="send-contract-btn">📤 Send to Client</button>
           <select id="detail-status-select" class="form-input" style="width:140px;padding:8px 12px;font-size:13px" onchange="updateProposalStatus()">
             <option value="draft">Draft</option>
             <option value="sent">Sent</option>
@@ -3111,6 +3112,141 @@ ${paymentsHtml}
 
   function printDetailProposal() {
     window.print();
+  }
+  async function sendContractToClient() {
+    if (!currentProposalId) return;
+
+    const { data: proposal } = await db.from('proposals').select('*, customers(first_name, last_name, email, phone)').eq('id', currentProposalId).single();
+    if (!proposal) { showToast('Could not load proposal.'); return; }
+
+    let token;
+    if (proposal.project_id) {
+      const { data: existing } = await db.from('client_invites').select('token').eq('project_id', proposal.project_id).eq('active', true).single();
+      if (existing) {
+        token = existing.token;
+      } else {
+        token = crypto.randomUUID();
+        await db.from('client_invites').insert({ project_id: proposal.project_id, token, active: true });
+      }
+    }
+
+    const portalLink = token ? `${window.location.origin}/portal.html?token=${token}` : null;
+    const clientName = proposal.customers ? `${proposal.customers.first_name} ${proposal.customers.last_name}` : 'Client';
+    const clientEmail = proposal.customers?.email;
+
+    const subject = encodeURIComponent(`Your Contract from Manor Park Construction`);
+    const body = encodeURIComponent(`Hi ${clientName},\n\nPlease review and sign your contract using the link below:\n\n${portalLink || '(link unavailable)'}\n\nYou can also view project updates, photos, and your payment schedule through this link.\n\nThank you,\nReuben Pemberton\nManor Park Construction\n(202) 875-7639`);
+
+    const choice = confirm(`Send contract to ${clientName}?\n\nClick OK to open email. Cancel to copy link only.`);
+
+    if (choice && clientEmail) {
+      window.open(`mailto:${clientEmail}?subject=${subject}&body=${body}`);
+    } else if (portalLink) {
+      navigator.clipboard.writeText(portalLink);
+      showToast('Portal link copied! Send via text or email.');
+    } else {
+      showToast('Assign this proposal to a project first.');
+    }
+
+    await db.from('proposals').update({ status: 'sent' }).eq('id', currentProposalId);
+    document.getElementById('detail-status-select').value = 'sent';
+    showToast('Proposal marked as Sent.');
+  }
+
+  async function sendContractToClient() {
+    if (!currentProposalId) return;
+
+    // Get proposal + project + customer info
+    const { data: proposal } = await db.from('proposals').select('*, customers(first_name, last_name, email, phone)').eq('id', currentProposalId).single();
+    if (!proposal) { showToast('Could not load proposal.'); return; }
+
+    // Find or create portal invite for this project
+    let token;
+    if (proposal.project_id) {
+      const { data: existing } = await db.from('client_invites').select('token').eq('project_id', proposal.project_id).eq('active', true).single();
+      if (existing) {
+        token = existing.token;
+      } else {
+        token = crypto.randomUUID();
+        await db.from('client_invites').insert({ project_id: proposal.project_id, token, active: true });
+      }
+    }
+
+    const portalLink = token ? `${window.location.origin}/portal.html?token=${token}` : null;
+    const clientName = proposal.customers ? `${proposal.customers.first_name} ${proposal.customers.last_name}` : 'Client';
+    const clientEmail = proposal.customers?.email;
+    const clientPhone = proposal.customers?.phone;
+
+    // Build email link
+    const subject = encodeURIComponent(`Your Contract from Manor Park Construction`);
+    const body = encodeURIComponent(`Hi ${clientName},\n\nPlease review and sign your contract using the link below:\n\n${portalLink || '(link unavailable)'}\n\nYou can also view project updates, photos, and your payment schedule through this link.\n\nThank you,\nReuben Pemberton\nManor Park Construction\n(202) 875-7639`);
+
+    // Show options modal
+    const msg = `Send contract to ${clientName}?\n\n${portalLink ? 'Portal link: ' + portalLink : 'No portal link — assign this proposal to a project first.'}\n\nChoose how to send:`;
+
+    const choice = confirm(`${msg}\n\nClick OK to open email, Cancel to copy link only.`);
+
+    if (choice && clientEmail) {
+      window.open(`mailto:${clientEmail}?subject=${subject}&body=${body}`);
+    } else if (portalLink) {
+      navigator.clipboard.writeText(portalLink);
+      showToast('Portal link copied! Send it via text or email.');
+    } else {
+      showToast('Assign this proposal to a project first to generate a portal link.');
+    }
+
+    // Update proposal status to Sent
+    await db.from('proposals').update({ status: 'sent' }).eq('id', currentProposalId);
+    document.getElementById('detail-status-select').value = 'sent';
+    showToast('Proposal marked as Sent.');
+  }
+
+  async function sendContractToClient() {
+    if (!currentProposalId) return;
+
+    // Get proposal + project + customer info
+    const { data: proposal } = await db.from('proposals').select('*, customers(first_name, last_name, email, phone)').eq('id', currentProposalId).single();
+    if (!proposal) { showToast('Could not load proposal.'); return; }
+
+    // Find or create portal invite for this project
+    let token;
+    if (proposal.project_id) {
+      const { data: existing } = await db.from('client_invites').select('token').eq('project_id', proposal.project_id).eq('active', true).single();
+      if (existing) {
+        token = existing.token;
+      } else {
+        token = crypto.randomUUID();
+        await db.from('client_invites').insert({ project_id: proposal.project_id, token, active: true });
+      }
+    }
+
+    const portalLink = token ? `${window.location.origin}/portal.html?token=${token}` : null;
+    const clientName = proposal.customers ? `${proposal.customers.first_name} ${proposal.customers.last_name}` : 'Client';
+    const clientEmail = proposal.customers?.email;
+    const clientPhone = proposal.customers?.phone;
+
+    // Build email link
+    const subject = encodeURIComponent(`Your Contract from Manor Park Construction`);
+    const body = encodeURIComponent(`Hi ${clientName},\n\nPlease review and sign your contract using the link below:\n\n${portalLink || '(link unavailable)'}\n\nYou can also view project updates, photos, and your payment schedule through this link.\n\nThank you,\nReuben Pemberton\nManor Park Construction\n(202) 875-7639`);
+
+    // Show options modal
+    const msg = `Send contract to ${clientName}?\n\n${portalLink ? 'Portal link: ' + portalLink : 'No portal link — assign this proposal to a project first.'}\n\nChoose how to send:`;
+
+    const choice = confirm(`${msg}\n\nClick OK to open email, Cancel to copy link only.`);
+
+    if (choice && clientEmail) {
+      window.open(`mailto:${clientEmail}?subject=${subject}&body=${body}`);
+    } else if (portalLink) {
+      navigator.clipboard.writeText(portalLink);
+      showToast('Portal link copied! Send it via text or email.');
+    } else {
+      showToast('Assign this proposal to a project first to generate a portal link.');
+    }
+
+    // Update proposal status to Sent
+    await db.from('proposals').update({ status: 'sent' }).eq('id', currentProposalId);
+    document.getElementById('detail-status-select').value = 'sent';
+    showToast('Proposal marked as Sent.');
   }
 
   window.addEventListener('load', function() {
