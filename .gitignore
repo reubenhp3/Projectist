@@ -1,0 +1,9 @@
+*.xlsx
+*.xls
+*.env
+*.log
+*.backup
+index_backup.*
+ClientContacts.*
+Subs.*
+node_modules/
